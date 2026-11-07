@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SuperMart_v 3.2.1</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#6F4E37">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+
+    <!-- CDN Oficial Tesseract.js para Escáner OCR de Tickets -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <style>
+        :root { 
+            --fondo: #6F4E37; --tarjeta: #E6D5B8; --texto: #3D2B1F; 
+            --gris: #4d4d4d; --azul: #2C5E8A; --verde: #27ae60; --rojo: #c0392b;
+            --fuente-btn: 14px;
+        }
+        body.noche { --fondo: #2c1e16; --tarjeta: #5d4037; --texto: #f5f5f5; }
+
+        body { font-family: sans-serif; background: var(--fondo); margin: 0; padding-bottom: 260px; color: white; transition: 0.3s; overflow-x: hidden; position: relative; }
+        
+        .header { background: var(--tarjeta); padding: 10px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.3); color: var(--texto); }
+        .controles-extra { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .btn-mini { background: rgba(0,0,0,0.1); border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; color: var(--texto); cursor: pointer; }
+
+        .buscador-caja { margin-bottom: 8px; position: relative; }
+        .buscador-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid rgba(0,0,0,0.2); box-sizing: border-box; font-size: 16px; font-weight: bold; color: #000; }
+        .sugerencias-busqueda { background: #fff; color: #333; border-radius: 10px; margin-top: 4px; max-height: 220px; overflow-y: auto; position: absolute; width: 100%; z-index: 150; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: none; }
+        .sugerencia-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 15px; cursor: pointer; }
+
+        /* Toast con colores dinámicos */
+        #toast { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--verde); color: white; padding: 12px 20px; border-radius: 25px; font-weight: bold; font-size: 15px; z-index: 400; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: background 0.3s; }
+        #toast.toast-info { background: var(--azul); }
+        #toast.toast-exito { background: var(--verde); }
+
+        .total-info { display: flex; justify-content: space-between; align-items: center; }
+        #total { font-size: 28px; font-weight: bold; }
+
+        .contenedor-semaforo { width: 100%; background: #ccc; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0; }
+        #barra-progreso { width: 0%; height: 100%; background: var(--verde); transition: 0.5s; }
+
+        .selector-unidades { display: flex; justify-content: space-around; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 12px; margin: 10px 0; align-items: center; }
+        .u-btn { background: var(--tarjeta); border: none; padding: 10px 18px; border-radius: 8px; color: var(--texto); font-weight: bold; cursor: pointer; }
+        .u-btn.active { background: var(--azul); color: white; transform: scale(1.1); }
+
+        .tabs { display: flex; gap: 5px; padding: 0 10px; margin-bottom: 10px; }
+        .tab { flex: 1; text-align: center; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 13px; background: rgba(0,0,0,0.2); cursor: pointer; }
+        .tab.active { background: var(--fondo); color: white; }
+
+        .pantalla { display: none; padding: 10px; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .pantalla.active { display: grid; }
+        
+        .boton { background: var(--tarjeta); border-radius: 15px; padding: 12px; display: flex; flex-direction: column; align-items: center; border: none; color: var(--texto); box-shadow: 0 3px 6px rgba(0,0,0,0.2); position: relative; cursor: pointer; }
+        .boton.resaltado { outline: 3px solid #f1c40f; transform: scale(1.03); }
+        .boton i { font-size: 26px; margin-bottom: 6px; }
+        .boton span { font-weight: bold; font-size: var(--fuente-btn); text-align: center; line-height: 1.1; word-break: break-word; }
+        .boton .subtotal-tag { font-size: var(--fuente-btn); font-weight: bold; color: var(--azul); margin-top: 5px; background: rgba(255,255,255,0.7); padding: 2px 8px; border-radius: 10px; display: inline-block; max-width: 85%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .historial { background: rgba(0,0,0,0.2); margin: 10px; padding: 12px; border-radius: 10px; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .historial:active { background: rgba(0,0,0,0.35); }
+
+        .panel-fijo { position: fixed; bottom: 0; left: 0; right: 0; background: #2D3436; padding: 12px; border-top: 3px solid var(--tarjeta); z-index: 200; }
+        .fila-ajuste { display: flex; justify-content: space-around; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .btn-a { width: 50px; height: 50px; border-radius: 25px; border: none; color: white; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .btn-escaner-flotante { position: fixed; bottom: 85px; right: 18px; z-index: 250; background: #d35400; color: white; width: 58px; height: 58px; border-radius: 29px; border: 2px solid #f39c12; box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: 0.2s; }
+        .btn-escaner-flotante:active { transform: scale(0.92); }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 300; align-items: center; justify-content: center; padding: 15px; }
+        .modal.active { display: flex; }
+        .modal-contenido { background: var(--tarjeta); color: var(--texto); padding: 18px; border-radius: 15px; width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto; box-sizing: border-box; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 8px; }
+        
+        .item-carro { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.08); transition: 0.2s; }
+        .item-carro.completado { background: rgba(39, 174, 96, 0.15); border-left: 4px solid var(--verde); padding-left: 6px; border-radius: 6px; }
+        .item-carro.completado strong { text-decoration: line-through; color: var(--gris); }
+        .btn-check-carro { background: rgba(0,0,0,0.1); border: none; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-size: 15px; margin-right: 8px; font-weight: bold; }
+        .btn-check-carro.activo { background: var(--verde); color: white; }
+
+        .item-habitual-card { background: rgba(0,0,0,0.05); padding: 10px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .item-habitual-card.en-casa { background: rgba(39, 174, 96, 0.18); border: 1px solid var(--verde); }
+        .item-habitual-info { display: flex; flex-direction: column; gap: 4px; }
+        .item-habitual-precio-badge { background: var(--azul); color: white; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 6px; align-self: flex-start; }
+        .item-habitual-acciones { display: flex; gap: 6px; align-items: center; }
+
+        .tarjeta-compra-guardada { background: rgba(0,0,0,0.05); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+        .tarjeta-compra-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .tarjeta-compra-detalle { margin-top: 10px; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; font-size: 13px; }
+
+        .form-nuevo-producto { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 10px; box-sizing: border-box; width: 100%; }
+        .inputs-linea { display: flex; gap: 6px; width: 100%; box-sizing: border-box; }
+        .inputs-linea input { padding: 10px 8px; border-radius: 8px; border: 1px solid #ccc; font-size: 13px; box-sizing: border-box; min-width: 0; }
+        #nuevo-nombre { flex: 1.8; }
+        #nuevo-precio { flex: 1; max-width: 110px; }
+        .botones-accion-linea { display: flex; gap: 8px; align-items: center; width: 100%; box-sizing: border-box; }
+        .btn-accion { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+        .calc-pantalla { background: #222; color: #00ff66; text-align: right; font-size: 24px; font-family: monospace; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .btn-calc { padding: 14px 5px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; background: rgba(0,0,0,0.1); color: var(--texto); cursor: pointer; text-align: center; }
+        .btn-calc.op { background: var(--azul); color: white; }
+        .btn-calc.igual { background: var(--verde); color: white; }
+        .btn-calc.zero { grid-column: span 2; }
+        .box-oferta { background: rgba(0,0,0,0.05); padding: 10px; border-radius: 8px; margin-top: 12px; }
+        .box-oferta input { padding: 6px; border-radius: 6px; border: 1px solid #ccc; width: 60px; font-size: 12px; }
+
+        .btn-cafe-ajustes { background: #FFDD00; color: #333; font-weight: bold; border: none; padding: 12px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; width: 100%; margin-top: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        .opcion-switch-caja { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.05); padding: 12px; border-radius: 10px; margin-top: 12px; }
+        .switch-lbl { font-size: 13px; font-weight: bold; color: var(--texto); }
+        .switch-input { width: 44px; height: 22px; appearance: none; background: #ccc; outline: none; border-radius: 12px; position: relative; cursor: pointer; transition: 0.3s; }
+        .switch-input:checked { background: var(--verde); }
+        .switch-input::before { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; top: 2px; left: 2px; background: white; transition: 0.3s; }
+        .switch-input:checked::before { left: 24px; }
+
+        .titulo-zona-seccion { grid-column: span 2; font-size: 14px; font-weight: bold; color: var(--tarjeta); background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px; margin-top: 10px; }
+
+        .f { color: #D35400; } .c { color: #A93226; } .l { color: #2E86C1; } .h { color: #512E5F; } .d { color: #795548; }
+
+        .brand-stamp { position: absolute; bottom: 5px; right: 8px; font-size: 9px; opacity: 0.35; color: var(--texto); pointer-events: none; user-select: none; display: flex; align-items: center; gap: 4px; z-index: 10; }
+
+        @media (min-width: 768px) {
+            .header, .historial, .pantalla { max-width: 1000px; margin-left: auto; margin-right: auto; }
+            .pantalla { grid-template-columns: repeat(4, 1fr); gap: 15px; }
+            .modal-contenido { max-width: 500px; }
+            .titulo-zona-seccion { grid-column: span 4; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="toast">✓ ¡Añadido al carro!</div>
+
+<div class="header">
+    <div class="controles-extra">
+        <div>
+            <button class="btn-mini" onclick="ajustarLetra(1)">T+</button>
+            <button class="btn-mini" onclick="ajustarLetra(-1)">T-</button>
+            <button class="btn-mini" onclick="toggleModoNoche()"><i class="fas fa-moon"></i></button>
+            <button class="btn-mini" onclick="abrirModal('modal-tutorial')" title="Instrucciones"><i class="fas fa-circle-question"></i></button>
+        </div>
+        <div style="display:flex; gap:6px;">
+            <button class="btn-mini" style="background:var(--azul); color:white;" onclick="abrirModal('modal-calc')"><i class="fas fa-calculator"></i></button>
+            <button class="btn-mini" onclick="abrirModal('modal-desglose')"><i class="fas fa-shopping-basket"></i> <span data-i18n="btn_cart">Carro</span></button>
+            <button class="btn-mini" onclick="abrirModal('modal-ajustes')"><i class="fas fa-gear"></i></button>
+        </div>
+    </div>
+    
+    <div class="buscador-caja">
+        <input type="text" class="buscador-input" id="buscador" placeholder="🔍 Escribe producto (ej. mantequilla, tomate)..." data-i18n-ph="search_ph" oninput="filtrarProductos()">
+        <div class="sugerencias-busqueda" id="sugerencias"></div>
+    </div>
+
+    <div class="total-info">
+        <div><h1 style="margin:0; font-size:18px;">🛒 <span data-i18n="app_heading">Gasto Familiar</span></h1><small id="status">Límite: 150.00€</small></div>
+        <div class="total-caja"><span id="total">0.00€</span></div>
+    </div>
+    <div class="contenedor-semaforo"><div id="barra-progreso"></div></div>
+    
+    <div class="tabs" id="contenedor-tabs">
+        <div class="tab active" id="t1" onclick="cambiarTab(1)" data-i18n="tab_food">ALIMENTACIÓN</div>
+        <div class="tab" id="t2" onclick="cambiarTab(2)" data-i18n="tab_home">HOGAR Y VARIOS</div>
+    </div>
+</div>
+
+<div id="vista-clasica">
+    <div class="pantalla active" id="p1">
+        <button class="boton" id="btn-Fruta" onclick="abrirCategoria('Fruta')"><i class="fas fa-apple-whole f"></i><span data-i18n="cat_fruit">Fruta</span><span class="subtotal-tag" id="sub-Fruta">0.00€</span></button>
+        <button class="boton" id="btn-Verdura" onclick="abrirCategoria('Verdura')"><i class="fas fa-carrot f"></i><span data-i18n="cat_veg">Verdura</span><span class="subtotal-tag" id="sub-Verdura">0.00€</span></button>
+        <button class="boton" id="btn-Carne" onclick="abrirCategoria('Carne')"><i class="fas fa-drumstick-bite c"></i><span data-i18n="cat_meat">Carnicería</span><span class="subtotal-tag" id="sub-Carne">0.00€</span></button>
+        <button class="boton" id="btn-Pescado" onclick="abrirCategoria('Pescado')"><i class="fas fa-fish l"></i><span data-i18n="cat_fish">Pescadería</span><span class="subtotal-tag" id="sub-Pescado">0.00€</span></button>
+        <button class="boton" id="btn-Leche" onclick="abrirCategoria('Leche')"><i class="fas fa-droplet l"></i><span data-i18n="cat_milk">Leche</span><span class="subtotal-tag" id="sub-Leche">0.00€</span></button>
+        <button class="boton" id="btn-Yogures" onclick="abrirCategoria('Yogures')"><i class="fas fa-ice-cream l"></i><span data-i18n="cat_dairy">Lácteos</span><span class="subtotal-tag" id="sub-Yogures">0.00€</span></button>
+        <button class="boton" id="btn-Embutido" onclick="abrirCategoria('Embutido')"><i class="fas fa-bacon c"></i><span data-i18n="cat_coldcuts">Embutidos</span><span class="subtotal-tag" id="sub-Embutido">0.00€</span></button>
+        <button class="boton" id="btn-Pan" onclick="abrirCategoria('Pan')"><i class="fas fa-bread-slice d"></i><span data-i18n="cat_bread">Pan/Bollería</span><span class="subtotal-tag" id="sub-Pan">0.00€</span></button>
+        <button class="boton" id="btn-Pasta/Arroz" onclick="abrirCategoria('Pasta/Arroz')"><i class="fas fa-box d"></i><span data-i18n="cat_pantry">Legumbres/Pasta/Arroz</span><span class="subtotal-tag" id="sub-Pasta/Arroz">0.00€</span></button>
+        <button class="boton" id="btn-Huevos" onclick="abrirCategoria('Huevos')"><i class="fas fa-egg d"></i><span data-i18n="cat_eggs">Huevos</span><span class="subtotal-tag" id="sub-Huevos">0.00€</span></button>
+    </div>
+
+    <div class="pantalla" id="p2">
+        <button class="boton" id="btn-Aceite" onclick="abrirCategoria('Aceite')"><i class="fas fa-oil-can d"></i><span data-i18n="cat_oils">Aceites</span><span class="subtotal-tag" id="sub-Aceite">0.00€</span></button>
+        <button class="boton" id="btn-Conservas" onclick="abrirCategoria('Conservas')"><i class="fas fa-jar d"></i><span data-i18n="cat_canned">Conservas/Aceitunas</span><span class="subtotal-tag" id="sub-Conservas">0.00€</span></button>
+        <button class="boton" id="btn-Café" onclick="abrirCategoria('Café')"><i class="fas fa-mug-hot d"></i><span data-i18n="cat_coffee">Café/Cacao</span><span class="subtotal-tag" id="sub-Café">0.00€</span></button>
+        <button class="boton" id="btn-Bebidas" onclick="abrirCategoria('Bebidas')"><i class="fas fa-bottle-water l"></i><span data-i18n="cat_drinks">Bebidas</span><span class="subtotal-tag" id="sub-Bebidas">0.00€</span></button>
+        <button class="boton" id="btn-Dulces" onclick="abrirCategoria('Dulces')"><i class="fas fa-cookie c"></i><span data-i18n="cat_snacks">Snacks/Dulces</span><span class="subtotal-tag" id="sub-Dulces">0.00€</span></button>
+        <button class="boton" id="btn-Congelado" onclick="abrirCategoria('Congelado')"><i class="fas fa-snowflake l"></i><span data-i18n="cat_frozen">Congelados</span><span class="subtotal-tag" id="sub-Congelado">0.00€</span></button>
+        <button class="boton" id="btn-Limpieza" onclick="abrirCategoria('Limpieza')"><i class="fas fa-soap h"></i><span data-i18n="cat_cleaning">Limpieza</span><span class="subtotal-tag" id="sub-Limpieza">0.00€</span></button>
+        <button class="boton" id="btn-Aseo" onclick="abrirCategoria('Aseo')"><i class="fas fa-pump-soap h"></i><span data-i18n="cat_hygiene">Higiene</span><span class="subtotal-tag" id="sub-Aseo">0.00€</span></button>
+        <button class="boton" id="btn-Papel/Varios" onclick="abrirCategoria('Papel/Varios')"><i class="fas fa-toilet-paper h"></i><span data-i18n="cat_paper">Papel/Varios</span><span class="subtotal-tag" id="sub-Papel/Varios">0.00€</span></button>
+        <button class="boton" id="btn-Mascotas" onclick="abrirCategoria('Mascotas')"><i class="fas fa-dog h"></i><span data-i18n="cat_pets">Mascotas</span><span class="subtotal-tag" id="sub-Mascotas">0.00€</span></button>
+    </div>
+</div>
+
+<div id="vista-pasillos" style="display:none; padding:10px;">
+    <div class="pantalla active" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="titulo-zona-seccion">📍 <span data-i18n="zone_entrance">Zona 1: Entrada y Frescos</span></div>
+        <button class="boton" onclick="abrirCategoria('Fruta')"><i class="fas fa-apple-whole f"></i><span data-i18n="cat_fruit">Fruta</span><span class="subtotal-tag" id="subp-Fruta">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Verdura')"><i class="fas fa-carrot f"></i><span data-i18n="cat_veg">Verdura</span><span class="subtotal-tag" id="subp-Verdura">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Pan')"><i class="fas fa-bread-slice d"></i><span data-i18n="cat_bread">Pan/Bollería</span><span class="subtotal-tag" id="subp-Pan">0.00€</span></button>
+        
+        <div class="titulo-zona-seccion">📍 <span data-i18n="zone_dry">Zona 2: Pasillos Secos (Despensa)</span></div>
+        <button class="boton" onclick="abrirCategoria('Conservas')"><i class="fas fa-jar d"></i><span data-i18n="cat_canned">Conservas/Aceitunas</span><span class="subtotal-tag" id="subp-Conservas">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Pasta/Arroz')"><i class="fas fa-box d"></i><span data-i18n="cat_pantry">Legumbres/Pasta/Arroz</span><span class="subtotal-tag" id="subp-Pasta/Arroz">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Aceite')"><i class="fas fa-oil-can d"></i><span data-i18n="cat_oils">Aceites</span><span class="subtotal-tag" id="subp-Aceite">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Café')"><i class="fas fa-mug-hot d"></i><span data-i18n="cat_coffee">Café/Cacao</span><span class="subtotal-tag" id="subp-Café">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Dulces')"><i class="fas fa-cookie c"></i><span data-i18n="cat_snacks">Snacks/Dulces</span><span class="subtotal-tag" id="subp-Dulces">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Bebidas')"><i class="fas fa-bottle-water l"></i><span data-i18n="cat_drinks">Bebidas</span><span class="subtotal-tag" id="subp-Bebidas">0.00€</span></button>
+
+        <div class="titulo-zona-seccion">📍 <span data-i18n="zone_cold">Zona 3: Murales de Frío & Carnes</span></div>
+        <button class="boton" onclick="abrirCategoria('Carne')"><i class="fas fa-drumstick-bite c"></i><span data-i18n="cat_meat">Carnicería</span><span class="subtotal-tag" id="subp-Carne">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Pescado')"><i class="fas fa-fish l"></i><span data-i18n="cat_fish">Pescadería</span><span class="subtotal-tag" id="subp-Pescado">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Leche')"><i class="fas fa-droplet l"></i><span data-i18n="cat_milk">Leche</span><span class="subtotal-tag" id="subp-Leche">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Yogures')"><i class="fas fa-ice-cream l"></i><span data-i18n="cat_dairy">Lácteos</span><span class="subtotal-tag" id="subp-Yogures">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Embutido')"><i class="fas fa-bacon c"></i><span data-i18n="cat_coldcuts">Embutidos</span><span class="subtotal-tag" id="subp-Embutido">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Huevos')"><i class="fas fa-egg d"></i><span data-i18n="cat_eggs">Huevos</span><span class="subtotal-tag" id="subp-Huevos">0.00€</span></button>
+
+        <div class="titulo-zona-seccion">📍 <span data-i18n="zone_home">Zona 4: Droguería y Cuidado Personal</span></div>
+        <button class="boton" onclick="abrirCategoria('Limpieza')"><i class="fas fa-soap h"></i><span data-i18n="cat_cleaning">Limpieza</span><span class="subtotal-tag" id="subp-Limpieza">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Aseo')"><i class="fas fa-pump-soap h"></i><span data-i18n="cat_hygiene">Higiene</span><span class="subtotal-tag" id="subp-Aseo">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Papel/Varios')"><i class="fas fa-toilet-paper h"></i><span data-i18n="cat_paper">Papel/Varios</span><span class="subtotal-tag" id="subp-Papel/Varios">0.00€</span></button>
+        <button class="boton" onclick="abrirCategoria('Mascotas')"><i class="fas fa-dog h"></i><span data-i18n="cat_pets">Mascotas</span><span class="subtotal-tag" id="subp-Mascotas">0.00€</span></button>
+
+        <div class="titulo-zona-seccion">📍 <span data-i18n="zone_checkout">Zona 5: Salida & Congelados</span></div>
+        <button class="boton" onclick="abrirCategoria('Congelado')"><i class="fas fa-snowflake l"></i><span data-i18n="cat_frozen">Congelados</span><span class="subtotal-tag" id="subp-Congelado">0.00€</span></button>
+    </div>
+</div>
+
+<div class="historial" id="hist-list" onclick="abrirModal('modal-historial')"><b>Última Compra:</b> Cargando...</div>
+
+<button class="btn-escaner-flotante" onclick="abrirModalEscaner()" title="Escanear Ticket de Compra">
+    🧾
+</button>
+
+<div class="panel-fijo">
+    <div class="fila-ajuste">
+        <button class="btn-a" style="background:#7f8c8d" onclick="deshacer()" title="Deshacer"><i class="fas fa-rotate-left"></i></button>
+        <button class="btn-a" style="background:var(--rojo)" onclick="sumar('DTO', -1.00, 'Ajuste')">-1€</button>
+        <button class="btn-a" style="background:var(--azul)" onclick="sumar('Ajuste', 0.10, 'Ajuste')">+10c</button>
+        <button class="btn-a" style="background:var(--azul)" onclick="sumar('Ajuste', 0.50, 'Ajuste')">+50c</button>
+        <button class="btn-a" style="background:var(--azul)" onclick="sumar('Ajuste', 1.00, 'Ajuste')">+1€</button>
+        <button class="btn-a" style="background:var(--verde); width: 90px; border-radius: 10px;" onclick="preguntarSupermercadoYGuardar()" data-i18n="btn_pay">PAGAR</button>
+    </div>
+</div>
+
+<!-- Modal Escáner -->
+<div class="modal" id="modal-escaner">
+    <div class="modal-contenido">
+        <div class="modal-header">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                <span>🧾</span> <span data-i18n="scanner_title">Escáner de Tickets de Compra</span>
+            </h3>
+            <button class="btn-mini" onclick="cerrarModalEscaner()">✕</button>
+        </div>
+
+        <p style="font-size:12px; color:var(--texto); opacity:0.8; margin-bottom:12px;" data-i18n="scanner_sub">
+            Escanea tu recibo de papel tras comprar. Si el ticket es largo, puedes fotografiarlo por tramos con el botón de añadir fotos.
+        </p>
+
+        <div id="zona-captura-ticket" onclick="document.getElementById('input-foto-ticket').click()" style="border:2px dashed var(--azul); border-radius:12px; padding:15px; text-align:center; background:rgba(44, 94, 138, 0.08); cursor:pointer; margin-bottom:12px;">
+            <input type="file" id="input-foto-ticket" accept="image/*" capture="environment" style="display:none;" onchange="procesarFotoTicket(event)">
+            
+            <div id="vista-previa-contenedor" style="display:none; margin-bottom:10px;">
+                <img id="img-vista-previa" src="" alt="Vista previa" style="max-height:180px; margin:0 auto; border-radius:8px; border:1px solid #ccc; display:block;">
+            </div>
+
+            <div id="instrucciones-subida">
+                <i class="fas fa-camera" style="font-size:32px; color:var(--azul); margin-bottom:8px;"></i>
+                <p style="font-size:13px; font-weight:bold; margin:0; color:var(--texto);" id="texto-boton-captura" data-i18n="btn_photo_ticket">Toca para fotografiar ticket</p>
+                <small style="font-size:11px; color:gray;" data-i18n="photo_tip">Acerca la cámara para asegurar lectura nítida</small>
+            </div>
+        </div>
+
+        <div id="loader-escaner" style="display:none; text-align:center; padding:12px; background:rgba(0,0,0,0.05); border-radius:10px; margin-bottom:12px;">
+            <i class="fas fa-spinner fa-spin" style="font-size:24px; color:var(--azul); margin-bottom:6px;"></i>
+            <p style="font-size:13px; font-weight:bold; margin:0;" id="texto-progreso-ocr">Analizando ticket...</p>
+            <small style="font-size:11px; color:gray;" data-i18n="ocr_local_tip">Procesando localmente en tu móvil</small>
+        </div>
+
+        <div id="contenedor-resultados-ticket" style="display:none; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <strong style="font-size:12px; color:var(--texto);" data-i18n="acc_items_title">Productos Acumulados:</strong>
+                <span id="total-detectados" style="font-size:12px; font-weight:bold; color:var(--azul);">0 encontrados</span>
+            </div>
+            
+            <div id="lista-items-detectados" style="max-height:160px; overflow-y:auto; font-size:12px; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:6px; background:rgba(255,255,255,0.4);"></div>
+
+            <button onclick="document.getElementById('input-foto-ticket').click()" class="btn-mini" style="width:100%; margin-top:8px; background:rgba(0,0,0,0.08); color:var(--texto); padding:8px; font-size:12px; border:1px solid rgba(0,0,0,0.15);" data-i18n="btn_add_more_photos">
+                📸 Añadir otro tramo del ticket
+            </button>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px;">
+            <button class="btn-mini" style="flex:1; padding:10px; background:var(--gris); color:white;" onclick="cerrarModalEscaner()" data-i18n="btn_cancel">Cancelar</button>
+            <button id="btn-guardar-ticket" class="btn-mini" style="flex:1; padding:10px; background:var(--verde); color:white;" onclick="confirmarImportacionTicket()" disabled data-i18n="btn_import_app">¡Importar A la App!</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Café -->
+<div class="modal" id="modal-cafe">
+    <div class="modal-contenido" style="text-align:center;">
+        <div class="modal-header">
+            <h3 style="margin:0;" data-i18n="cafe_title">☕ Invítame a un Café</h3>
+            <button class="btn-mini" onclick="cerrarModal('modal-cafe')">✕</button>
+        </div>
+        <p style="font-size:36px; margin:10px 0;">☕😊</p>
+        <p style="font-size:14px; line-height:1.5; color:var(--texto);" data-i18n="cafe_desc">
+            <strong>SuperMart</strong> es una aplicación 100% gratuita y libre de anuncios.<br><br>
+            Si te resulta útil para gestionar tus compras diarias, puedes hacer una pequeña aportación. Puedes pagar con <strong>tarjeta normal, Google Pay o PayPal</strong> de forma rápida y segura.
+        </p>
+        
+        <a href="https://revolut.me/sharifmb" target="_blank" class="btn-mini" style="background:#0075FF; color:white; padding:12px; width:100%; display:block; font-size:14px; font-weight:bold; margin-top:12px; text-decoration:none; border-radius:10px; box-sizing:border-box;" data-i18n="pay_revolut">
+            💳 Pagar con Tarjeta o Google Pay (Revolut)
+        </a>
+
+        <a href="https://paypal.me/sherrif86" target="_blank" class="btn-mini" style="background:#003087; color:white; padding:12px; width:100%; display:block; font-size:14px; font-weight:bold; margin-top:8px; text-decoration:none; border-radius:10px; box-sizing:border-box;" data-i18n="pay_paypal">
+            🅿️ Pagar con PayPal
+        </a>
+    </div>
+</div>
+
+<!-- Modal Tutorial -->
+<div class="modal" id="modal-tutorial">
+    <div class="modal-contenido">
+        <div class="modal-header">
+            <h3 style="margin:0;" data-i18n="tut_title">📖 Cómo usar SuperMart v3.2.1</h3>
+            <button class="btn-mini" onclick="cerrarModal('modal-tutorial')">✕</button>
+        </div>
+        <div style="font-size:13px; line-height:1.6;">
+            <p>1️⃣ <strong data-i18n="tut_step1_b">Antes de salir:</strong> <span data-i18n="tut_step1">Abre la app y entra en cada categoría. Guarda lo que necesitas comprando o apuntando nuevos productos (incluso con 0.00€ para apuntarlo desde casa).</span></p>
+            <p>2️⃣ <strong data-i18n="tut_step2_b">En el súper:</strong> <span data-i18n="tut_step2">Si un producto tiene 0.00€ o ha cambiado de precio, toca el lápiz (✏️) para poner su valor real antes de añadirlo al carro.</span></p>
+            <p>3️⃣ <strong data-i18n="tut_step3_scan_b">🧾 Novedad Escáner:</strong> <span data-i18n="tut_step3_scan">Usa el botón flotante 🧾 para fotografiar tu recibo de papel tras comprar. Los precios y productos se colocarán en sus tarjetas solas.</span></p>
+            <p>4️⃣ <strong data-i18n="tut_step3_b">Control de gasto:</strong> <span data-i18n="tut_step3">El semáforo superior te avisará en verde, amarillo y rojo según te acerques a tu presupuesto.</span></p>
+            <p>5️⃣ <strong data-i18n="tut_step4_b">Al terminar:</strong> <span data-i18n="tut_step4">Pulsa <b>PAGAR</b> para registrar el supermercado y guardar la lista en tu historial.</span></p>
+        </div>
+        <button class="btn-mini" style="background:var(--verde); color:white; width:100%; padding:12px; font-weight:bold; margin-top:10px;" onclick="cerrarModal('modal-tutorial')" data-i18n="btn_understood">¡Entendido!</button>
+    </div>
+</div>
+
+<!-- Modal Calculadora -->
+<div class="modal" id="modal-calc">
+    <div class="modal-contenido">
+        <div class="modal-header">
+            <h3 style="margin:0;" data-i18n="calc_title">🧮 Calculadora & Ofertas</h3>
+            <button class="btn-mini" onclick="cerrarModal('modal-calc')">✕</button>
+        </div>
+        <div class="calc-pantalla" id="calc-display">0</div>
+        <div class="calc-grid">
+            <button class="btn-calc" onclick="calcInput('C')">C</button>
+            <button class="btn-calc op" onclick="calcInput('/')">/</button>
+            <button class="btn-calc op" onclick="calcInput('*')">×</button>
+            <button class="btn-calc op" onclick="calcInput('-')">-</button>
+            <button class="btn-calc" onclick="calcInput('7')">7</button>
+            <button class="btn-calc" onclick="calcInput('8')">8</button>
+            <button class="btn-calc" onclick="calcInput('9')">9</button>
+            <button class="btn-calc op" onclick="calcInput('+')">+</button>
+            <button class="btn-calc" onclick="calcInput('4')">4</button>
+            <button class="btn-calc" onclick="calcInput('5')">5</button>
+            <button class="btn-calc" onclick="calcInput('6')">6</button>
+            <button class="btn-calc op" onclick="usarResultadoCalc()" data-i18n="calc_use">📋 Usar</button>
+            <button class="btn-calc" onclick="calcInput('1')">1</button>
+            <button class="btn-calc" onclick="calcInput('2')">2</button>
+            <button class="btn-calc" onclick="calcInput('3')">3</button>
+            <button class="btn-calc op" onclick="calcInput('.')">.</button>
+            <button class="btn-calc zero" onclick="calcInput('0')">0</button>
+            <button class="btn-calc igual" style="grid-column: span 2;" onclick="calcInput('=')">=</button>
+        </div>
+        <div class="box-oferta">
+            <p style="margin:0 0 6px 0; font-size:12px; font-weight:bold;" data-i18n="offer_title">⚖️ Calculador de Oferta / Peso:</p>
+            <div style="display:flex; gap:6px; align-items:center; font-size:12px;">
+                <span data-i18n="price_label">Precio:</span><input type="number" id="of-precio" placeholder="€" step="0.01">
+                <span data-i18n="grams_label">Gramos:</span><input type="number" id="of-gramos" placeholder="g">
+                <button class="btn-mini" style="background:var(--azul); color:white;" onclick="calcularPrecioKilo()">= /Kg</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Categoria -->
+<div class="modal" id="modal-cat">
+    <div class="modal-contenido">
+        <div class="modal-header">
+            <h3 style="margin:0;" id="modal-cat-titulo">Categoría</h3>
+            <button class="btn-mini" onclick="cerrarModal('modal-cat')">✕</button>
+        </div>
+        
+        <div class="selector-unidades">
+            <span style="font-weight:bold" data-i18n="units_label">Uds:</span>
+            <button class="u-btn active modal-u-btn" onclick="setU(1, this)">1</button>
+            <button class="u-btn modal-u-btn" onclick="setU(2, this)">2</button>
+            <button class="u-btn modal-u-btn" onclick="setU(3, this)">3</button>
+            <button class="u-btn modal-u-btn" onclick="setU(6, this)">6</button>
+            <button class="u-btn modal-u-btn" onclick="setU(12, this)">12</button>
+        </div>
+
+        <p style="margin:8px 0; font-size:13px; font-weight:bold;" data-i18n="frequents_sub">⚡ Productos Frecuentes (🏠 Marca si ya está en casa):</p>
+        <div id="lista-frecuentes"></div>
+        <hr style="margin:15px 0; opacity:0.2;">
+        <p style="margin:0 0 8px 0; font-size:13px; font-weight:bold;" data-i18n="add_product_sub">📝 Apuntar Producto (Puedes guardar a 0.00€ para lista):</p>
+        <div class="form-nuevo-producto">
+            <div class="inputs-linea">
+                <input type="text" id="nuevo-nombre" placeholder="Nombre (ej. Abrillantador)" data-i18n-ph="name_ph">
+                <input type="number" id="nuevo-precio" placeholder="Precio € (0 si no sabes)" data-i18n-ph="price_ph" step="0.01">
+            </div>
+            <div class="botones-accion-linea">
+                <button class="btn-accion" style="background:var(--azul); color:white;" onclick="guardarNuevoEnLista()"><i class="fas fa-bookmark"></i> <span data-i18n="btn_save_list">Guardar en Lista</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Carro Actual -->
+<div class="modal" id="modal-desglose">
+    <div class="modal-contenido">
+        <div class="modal-header">
+            <h3 style="margin:0;" data-i18n="cart_title">🛒 Productos en el Carro</h3>
+            <button class="btn-mini" onclick="cerrarModal('modal-desglose')">✕</button>
+        </div>
+        <div id="lista-carro"></div>
+        <div style="margin-top:15px; border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
+            <button class="btn-mini" style="background:#25D366; color:white; width:100%; padding:10px; font-weight:bold; font-size:14px;" onclick="compartirListaActivaWhatsApp()"><i class="fab fa-whatsapp"></i> <span data-i18n="btn_share_cart">Compartir Lista por WhatsApp</span></button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Historial -->
+<div class="modal" id="modal-historial">
+    <div class="modal-contenido">
+        <div class="modal-header">
+            <h3 style="margin:0;" data-i18n="hist_title">📜 Historial de Compras</h3>
+            <button class="btn-mini" onclick="cerrarModal('modal-historial')">✕</button>
+        </div>
+        <div id="lista-historial-detallado"></div>
+    </div>
+</div>
+
+<!-- Modal Ajustes -->
+<div class="modal" id="modal-ajustes">
+    <div class="modal-contenido">
+        <div class="modal-header">
+            <h3 style="margin:0;" data-i18n="settings_title">⚙️ Configuración</h3>
+            <button class="btn-mini" onclick="cerrarModal('modal-ajustes')">✕</button>
+        </div>
+
+        <p style="margin:10px 0 4px 0;"><strong data-i18n="lang_select_label">🌐 Idioma de la Aplicación:</strong></p>
+        <select id="selector-idioma" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size:14px; font-weight:bold; background:white; color:#333;" onchange="cambiarIdiomaManual(this.value)">
+            <option value="es">Español (ES)</option>
+            <option value="en">English (EN)</option>
+            <option value="fr">Français (FR)</option>
+            <option value="it">Italiano (IT)</option>
+            <option value="de">Deutsch (DE)</option>
+            <option value="pt">Português (PT)</option>
+            <option value="ca">Català (CA)</option>
+        </select>
+
+        <p style="margin-top:15px;"><strong data-i18n="budget_limit_label">Límite de Presupuesto (€):</strong></p>
+        <input type="number" id="input-limite" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;" value="150">
+        <button class="btn-mini" style="background: var(--azul); color: white; width: 100%; margin-top: 8px; padding: 10px;" onclick="guardarLimite()" data-i18n="btn_save_limit">Guardar Límite</button>
+        
+        <div class="opcion-switch-caja">
+            <span class="switch-lbl" data-i18n="switch_aisles_label">🛒 Ordenar por Pasillos / Zonas:</span>
+            <input type="checkbox" class="switch-input" id="switch-pasillos" onchange="toggleModoPasillos(this.checked)">
+        </div>
+
+        <div style="background:rgba(0,0,0,0.05); padding:10px; border-radius:8px; margin-top:15px;">
+            <p style="margin:0 0 6px 0; font-size:13px; font-weight:bold;" data-i18n="sync_title">📱 Sincronización entre Móviles:</p>
+            <input type="text" id="clave-uid-display" readonly style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc; font-family:monospace; font-size:12px; margin-bottom:8px; box-sizing:border-box;">
+            <div style="display:flex; gap:6px; margin-bottom:6px;">
+                <button class="btn-mini" style="flex:1; background:var(--azul); color:white;" onclick="copiarClaveUID()"><i class="fas fa-copy"></i> <span data-i18n="btn_copy_key">Copiar Clave</span></button>
+                <button class="btn-mini" style="flex:1; background:var(--verde); color:white;" onclick="vincularOtraClave()"><i class="fas fa-link"></i> <span data-i18n="btn_link_device">Vincular Móvil</span></button>
+            </div>
+            <button class="btn-mini" style="width:100%; background:var(--rojo); color:white; padding:8px;" onclick="desvincularDispositivo()"><i class="fas fa-unlink"></i> <span data-i18n="btn_unlink_device">Desvincular Dispositivo</span></button>
+        </div>
+
+        <div style="background:rgba(0,0,0,0.05); padding:10px; border-radius:8px; margin-top:12px;">
+            <p style="margin:0; font-size:13px;" id="resumen-gasto-mes">📊 Gasto acumulado este mes: <strong>0.00€</strong></p>
+        </div>
+
+        <button class="btn-cafe-ajustes" onclick="cerrarModal('modal-ajustes'); abrirModal('modal-cafe');"><i class="fas fa-mug-hot"></i> <span data-i18n="btn_buy_coffee">☕ Invítame a un café</span></button>
+
+        <hr style="margin: 20px 0; opacity: 0.3;">
+        <button class="btn-mini" style="background: var(--azul); color: white; width: 100%; padding: 12px; font-weight:bold; margin-bottom: 25px;" onclick="abrirHistorialDirecto()" data-i18n="btn_view_hist">📜 Ver Historial de Compras Guardadas</button>
+        
+        <div style="background: rgba(192, 57, 43, 0.1); padding: 10px; border-radius: 10px; border: 1px solid rgba(192, 57, 43, 0.3);">
+            <p style="margin:0 0 6px 0; font-size:11px; color:var(--rojo); font-weight:bold; text-align:center;" data-i18n="danger_zone">⚠️ ZONA DE PELIGRO</p>
+            <button class="btn-mini" style="background: var(--rojo); color: white; width: 100%; padding: 10px;" onclick="vaciarHistorial()" data-i18n="btn_clear_hist">Borrar Historial Completo</button>
+        </div>
+    </div>
+</div>
+
+<!-- Sello oficial con emblema hexagonal MB medbasha en minúsculas y disimulado -->
+<div class="brand-stamp">
+    <span style="display: inline-flex; align-items: center; justify-content: center; width: 11px; height: 11px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); background: currentColor; color: var(--fondo); font-size: 6px; font-weight: bold; line-height: 1;">mb</span>
+    <span>medbasha</span>
+</div>
+
+<!-- SDKs Firebase Firestore CDN -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDSO_tEBCS1tX0VzD_RmBJWVXBg0YE8YUY",
+        authDomain: "supermart-app-a93e3.firebaseapp.com",
+        projectId: "supermart-app-a93e3",
+        storageBucket: "supermart-app-a93e3.firebasestorage.app",
+        messagingSenderId: "558725560418",
+        appId: "1:558725560418:web:75e6c1228edcf9d320f93b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const dbCloud = getFirestore(app);
+
+    let userId = localStorage.getItem('supermart_uid');
+    if(!userId) {
+        userId = 'usr_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        localStorage.setItem('supermart_uid', userId);
+    }
+
+    // Bandera para evitar bucle entre la app local y el servidor en tiempo real
+    let esActualizacionLocal = false;
+
+    window.sincronizarCloud = async function(clave, valor) {
+        try {
+            esActualizacionLocal = true;
+            await setDoc(doc(dbCloud, "usuarios_supermart", userId), {
+                [clave]: typeof valor === 'object' ? JSON.stringify(valor) : valor,
+                ultimaActualizacion: new Date().toISOString()
+            }, { merge: true });
+            setTimeout(() => { esActualizacionLocal = false; }, 800);
+        } catch(e) {
+            esActualizacionLocal = false;
+            console.warn("Fallo sincronización nube (modo offline activo):", e);
+        }
+    };
+
+    window.restaurarNube = function() {
+        try {
+            const docRef = doc(dbCloud, "usuarios_supermart", userId);
+            onSnapshot(docRef, (docSnap) => {
+                if (esActualizacionLocal) return; // Si el cambio viene de este dispositivo, ignorar rebote
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    let huboCambios = false;
+
+                    if (data.habituales_v130 && data.habituales_v130 !== localStorage.getItem('habituales_v130')) {
+                        localStorage.setItem('habituales_v130', data.habituales_v130);
+                        if (typeof habituales !== 'undefined') habituales = JSON.parse(data.habituales_v130);
+                        huboCambios = true;
+                    }
+                    if (data.carro_temp && data.carro_temp !== localStorage.getItem('carro_temp')) {
+                        localStorage.setItem('carro_temp', data.carro_temp);
+                        if (typeof carroActual !== 'undefined') carroActual = JSON.parse(data.carro_temp);
+                        huboCambios = true;
+                    }
+                    if (data.compras_detalladas_v150 && data.compras_detalladas_v150 !== localStorage.getItem('compras_detalladas_v150')) {
+                        localStorage.setItem('compras_detalladas_v150', data.compras_detalladas_v150);
+                        if (typeof historialCompras !== 'undefined') historialCompras = JSON.parse(data.compras_detalladas_v150);
+                        huboCambios = true;
+                    }
+                    if (data.limite_v110 && data.limite_v110 !== localStorage.getItem('limite_v110')) {
+                        localStorage.setItem('limite_v110', data.limite_v110);
+                        if (typeof limitePresupuesto !== 'undefined') limitePresupuesto = parseFloat(data.limite_v110);
+                        huboCambios = true;
+                    }
+                    if (data.modo_pasillos_v270 && data.modo_pasillos_v270 !== localStorage.getItem('modo_pasillos_v270')) {
+                        localStorage.setItem('modo_pasillos_v270', data.modo_pasillos_v270);
+                        if (typeof modoPasillos !== 'undefined') modoPasillos = (data.modo_pasillos_v270 === 'true');
+                        huboCambios = true;
+                    }
+
+                    if (huboCambios && typeof actualizar === 'function') {
+                        actualizar();
+                        if (typeof categoriaActiva !== 'undefined' && categoriaActiva && typeof renderFrecuentes === 'function') {
+                            renderFrecuentes();
+                        }
+                        const modalDesglose = document.getElementById('modal-desglose');
+                        if (modalDesglose && modalDesglose.classList.contains('active') && typeof renderDesglose === 'function') {
+                            renderDesglose();
+                        }
+                    }
+                }
+            });
+        } catch(e) {
+            console.warn("Sin acceso a la escucha en vivo, cargando sólo local:", e);
+        }
+    };
+</script>
+
+<script>
+    (function() {
+        if (window.location.hash) {
+            history.replaceState(null, null, window.location.pathname + window.location.search);
+        }
+
+        const VER_KEY = 'supermart_version_instalada';
+        const VERSION_ACTUAL = '3.2.1_clean';
+
+        if (localStorage.getItem(VER_KEY) !== VERSION_ACTUAL) {
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                    }
+                });
+            }
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (let registration of registrations) {
+                        registration.unregister();
+                    }
+                });
+            }
+            localStorage.setItem(VER_KEY, VERSION_ACTUAL);
+            window.location.reload(true);
+        }
+    })();
+
+    const diccionarioSmartCategorias = {
+        'Fruta': ['manzana', 'platano', 'banana', 'naranja', 'pera', 'fresa', 'limon', 'uva', 'kiwi', 'mora', 'arandano', 'cereza', 'sandia', 'melon', 'melocoton', 'albaricoque', 'ciruela', 'mandarina', 'aguacate', 'pina', 'mango'],
+        'Verdura': ['tomate', 'lechuga', 'zanahoria', 'cebolla', 'ajo', 'patata', 'pimiento', 'pepino', 'calabacin', 'berenjena', 'espinaca', 'brocoli', 'coliflor', 'judia', 'puerro', 'champinon', 'seta', 'calabaza'],
+        'Carne': ['pollo', 'pechuga', 'carne', 'ternera', 'cerdo', 'pavo', 'hamburguesa', 'albóndiga', 'albondiga', 'solomillo', 'lomo', 'costilla', 'secreto', 'picada', 'chuleton', 'chuleta', 'sartencilla', 'salchicha'],
+        'Pescado': ['pescado', 'salmon', 'lubina', 'dorada', 'merluza', 'bacalao', 'atun fresco', 'calamar', 'gamba', 'langostino', 'pulpo', 'sepia', 'almeja', 'mejillon', 'sardina'],
+        'Leche': ['leche', 'batido', 'horchata', 'bebida avena', 'bebida soja', 'bebida almendra'],
+        'Yogures': ['mantequilla', 'margarina', 'yogur', 'yogurt', 'queso', 'quesito', 'cuajada', 'nata', 'natilla', 'flan', 'kefir', 'requejson', 'mozzarella', 'parmesano'],
+        'Embutido': ['jamon', 'serrano', 'york', 'chorizo', 'salchichon', 'lomo embuchado', 'mortadela', 'pate', 'pavo lonchas', 'bacon', 'tocino', 'sobrasada', 'fuet', 'chistorra'],
+        'Pan': ['pan', 'barra', 'baguette', 'croissant', 'bollo', 'magdalena', 'bizcocho', 'pan de molde', 'tostada', 'donut', 'ensaimada'],
+        'Pasta/Arroz': ['pasta', 'macarrones', 'espaguetis', 'tallarines', 'arroz', 'lentejas', 'garbanzos', 'alubias', 'habas', 'harina', 'cuscus', 'quinoa', 'fideos'],
+        'Huevos': ['huevo', 'huevos', 'claras', 'huevina'],
+        'Aceite': ['aceite', 'oliva', 'girasol', 'vinagre', 'vinagre modena'],
+        'Conservas': ['aceitunas', 'atun', 'bonito', 'sardinitas', 'maiz', 'esparragos', 'tomate frito', 'tomate triturado', 'pimiento lata', 'pepinillos', 'alcaparras'],
+        'Café': ['cafe', 'cacao', 'colacao', 'nesquik', 'infusion', 'te', 'manzanilla', 'menta'],
+        'Bebidas': ['agua', 'refresco', 'cocacola', 'fanta', 'sprite', 'zumo', 'cerveza', 'vino', 'tinto', 'blanco', 'gaseosa', 'tonica', 'energetica'],
+        'Dulces': ['galletas', 'chocolate', 'bombones', 'patatas fritas', 'pipas', 'frutos secos', 'almendras', 'avellanas', 'palomitas', 'chuches', 'caramelos'],
+        'Congelado': ['hielo', 'helado', 'pizza congelada', 'croquetas', 'patatas congeladas', 'pescado congelado', 'verdura congelada', 'churros congelados'],
+        'Limpieza': ['detergente', 'suavizante', 'fregasuelos', 'lavavajillas', 'lavaplatos', 'fairy', 'lejia', 'amoniaco', 'limpiahogares', 'desengrasante', 'quitagrasas', 'fregona', 'estropajo', 'bayeta'],
+        'Aseo': ['champu', 'gel', 'jabon', 'pasta de dientes', 'dentifrico', 'desodorante', 'crema', 'colonia', 'perfume', 'cuchilla', 'espuma afeitar'],
+        'Papel/Varios': ['papel higienico', 'papel cocina', 'servilletas', 'papel aluminio', 'film transparente', 'bolsas basura', 'velas', 'cerillas'],
+        'Mascotas': ['pienso', 'comida perro', 'comida gato', 'arena gato', 'snack perro', 'lata perro', 'lata gato']
+    };
+
+    const i18n = {
+        es: {
+            btn_cart: "Carro", search_ph: "🔍 Escribe producto (ej. mantequilla, tomate)...", app_heading: "Gasto Familiar",
+            tab_food: "ALIMENTACIÓN", tab_home: "HOGAR Y VARIOS",
+            cat_fruit: "Fruta", cat_veg: "Verdura", cat_meat: "Carnicería", cat_fish: "Pescadería", cat_milk: "Leche", cat_dairy: "Lácteos", cat_coldcuts: "Embutidos", cat_bread: "Pan/Bollería", cat_pantry: "Legumbres/Pasta/Arroz", cat_eggs: "Huevos",
+            cat_oils: "Aceites", cat_canned: "Conservas/Aceitunas", cat_coffee: "Café/Cacao", cat_drinks: "Bebidas", cat_snacks: "Snacks/Dulces", cat_frozen: "Congelados", cat_cleaning: "Limpieza", cat_hygiene: "Higiene", cat_paper: "Papel/Varios", cat_pets: "Mascotas",
+            btn_pay: "PAGAR", cafe_title: "☕ Invítame a un Café",
+            cafe_desc: "<strong>SuperMart</strong> es una aplicación 100% gratuita y libre de anuncios.<br><br>Si te resulta útil para gestionar tus compras diarias, puedes hacer una pequeña aportación. Puedes pagar con <strong>tarjeta normal, Google Pay o PayPal</strong> de forma rápida y segura.",
+            pay_revolut: "💳 Pagar con Tarjeta o Google Pay (Revolut)", pay_paypal: "🅿️ Pagar con PayPal",
+            tut_title: "📖 Cómo usar SuperMart v3.2.1",
+            tut_step1_b: "Antes de salir:", tut_step1: "Abre la app y entra en cada categoría. Guarda lo que necesitas comprando o apuntando nuevos productos (incluso con 0.00€ para apuntarlo desde casa).",
+            tut_step2_b: "En el súper:", tut_step2: "Si un producto tiene 0.00€ o ha cambiado de precio, toca el lápiz (✏️) para poner su valor real antes de añadirlo al carro.",
+            tut_step3_scan_b: "🧾 Novedad Escáner:", tut_step3_scan: "Usa el botón flotante 🧾 para fotografiar tu recibo de papel tras comprar. Los precios y productos se colocarán en sus tarjetas solas.",
+            tut_step3_b: "Control de gasto:", tut_step3: "El semáforo superior te avisará en verde, amarillo y rojo según te acerques a tu presupuesto.",
+            tut_step4_b: "Al terminar:", tut_step4: "Pulsa <b>PAGAR</b> para registrar el supermercado y guardar la lista en tu historial.",
+            btn_understood: "¡Entendido!", calc_title: "🧮 Calculadora & Ofertas", calc_use: "📋 Usar",
+            offer_title: "⚖️ Calculador de Oferta / Peso:", price_label: "Precio:", grams_label: "Gramos:", units_label: "Uds:",
+            frequents_sub: "⚡ Productos Frecuentes (🏠 Marca si ya está en casa):", add_product_sub: "📝 Apuntar Producto (Puedes guardar a 0.00€ para lista):",
+            name_ph: "Nombre (ej. Abrillantador)", price_ph: "Precio € (0 si no sabes)", btn_save_list: "Guardar en Lista",
+            cart_title: "🛒 Productos en el Carro", btn_share_cart: "Compartir Lista por WhatsApp", hist_title: "📜 Historial de Compras",
+            settings_title: "⚙️ Configuración", lang_select_label: "🌐 Idioma de la Aplicación:", budget_limit_label: "Límite de Presupuesto (€):",
+            btn_save_limit: "Guardar Límite", btn_buy_coffee: "☕ Invítame a un café", btn_view_hist: "📜 Ver Historial de Compras Guardadas",
+            danger_zone: "⚠️ ZONA DE PELIGRO", btn_clear_hist: "Borrar Historial Completo", switch_aisles_label: "🛒 Ordenar por Pasillos / Zonas:",
+            sync_title: "📱 Sincronización entre Móviles:", btn_copy_key: "Copiar Clave", btn_link_device: "Vincular Móvil", btn_unlink_device: "Desvincular Dispositivo",
+            zone_entrance: "Zona 1: Entrada y Frescos", zone_dry: "Zona 2: Pasillos Secos (Despensa)", zone_cold: "Zona 3: Murales de Frío & Carnes", zone_home: "Zona 4: Droguería y Cuidado Personal", zone_checkout: "Zona 5: Salida & Congelados",
+            scanner_title: "Escáner de Tickets de Compra", scanner_sub: "Escanea tu recibo de papel tras comprar. Si el ticket es largo, puedes fotografiarlo por tramos con el botón de añadir fotos.",
+            btn_photo_ticket: "Toca para fotografiar ticket", photo_tip: "Acerca la cámara para asegurar lectura nítida", ocr_local_tip: "Procesando localmente en tu móvil",
+            acc_items_title: "Productos Acumulados:", btn_add_more_photos: "📸 Añadir otro tramo del ticket", btn_cancel: "Cancelar", btn_import_app: "¡Importar A la App!",
+            /* Traducciones dinámicas de productos frecuentes base */
+            prod_apples: "Manzanas", prod_bananas: "Plátanos", prod_tomatoes: "Tomates", prod_lettuce: "Lechuga",
+            prod_chicken_breast: "Pechuga Pollo", prod_minced_meat: "Carne Picada", prod_detergent: "Detergente",
+            prod_floor_cleaner: "Fregasuelos", prod_pack_milk: "Pack Leche 6L", prod_liter_milk: "Litro Leche",
+            prod_lentils_can: "Lentejas Bote", prod_chickpeas: "Garbanzos", prod_olives_can: "Aceitunas Bote", prod_tuna_can: "Lata Atún"
+        },
+        en: {
+            btn_cart: "Cart", search_ph: "🔍 Type product (e.g. butter, tomato)...", app_heading: "Family Expenses",
+            tab_food: "FOOD", tab_home: "HOME & MORE",
+            cat_fruit: "Fruit", cat_veg: "Vegetables", cat_meat: "Butcher", cat_fish: "Fish Market", cat_milk: "Milk", cat_dairy: "Dairy", cat_coldcuts: "Cold Cuts", cat_bread: "Bread/Bakery", cat_pantry: "Pasta/Rice/Beans", cat_eggs: "Eggs",
+            cat_oils: "Oils", cat_canned: "Canned Goods", cat_coffee: "Coffee/Cocoa", cat_drinks: "Drinks", cat_snacks: "Snacks/Sweets", cat_frozen: "Frozen Food", cat_cleaning: "Cleaning", cat_hygiene: "Hygiene", cat_paper: "Paper/Misc", cat_pets: "Pets",
+            btn_pay: "CHECKOUT", cafe_title: "☕ Buy me a Coffee",
+            cafe_desc: "<strong>SuperMart</strong> is 100% free with no ads.<br><br>Support the app with card, Google Pay or PayPal.",
+            pay_revolut: "💳 Pay with Card or Google Pay (Revolut)", pay_paypal: "🅿️ Pay with PayPal",
+            tut_title: "📖 How to use SuperMart v3.2.1",
+            tut_step1_b: "Before shopping:", tut_step1: "Open the app and check each category. Add items to your list at home even at €0.00.",
+            tut_step2_b: "At the store:", tut_step2: "Tap the pencil (✏️) to set exact prices before adding items to your cart.",
+            tut_step3_scan_b: "🧾 New Receipt Scanner:", tut_step3_scan: "Use the floating button 🧾 to photograph your paper receipt after shopping. Prices and items will automatically update in your cards.",
+            tut_step3_b: "Budget control:", tut_step3: "Top bar changes color as you spend.",
+            tut_step4_b: "At checkout:", tut_step4: "Tap <b>CHECKOUT</b> to save receipt.",
+            btn_understood: "Got it!", calc_title: "🧮 Calculator", calc_use: "📋 Use",
+            offer_title: "⚖️ Offer / Weight Calculator:", price_label: "Price:", grams_label: "Grams:", units_label: "Qty:",
+            frequents_sub: "⚡ Frequent Items (🏠 Mark if at home):", add_product_sub: "📝 Add Item (Save at €0.00 for list):",
+            name_ph: "Name (e.g. Rinse aid)", price_ph: "Price € (0 if unknown)", btn_save_list: "Save to List",
+            cart_title: "🛒 Cart Items", btn_share_cart: "Share List via WhatsApp", hist_title: "📜 Shopping History",
+            settings_title: "⚙️ Settings", lang_select_label: "🌐 App Language:", budget_limit_label: "Budget Limit (€):",
+            btn_save_limit: "Save Limit", btn_buy_coffee: "☕ Buy me a coffee", btn_view_hist: "📜 View Saved History",
+            danger_zone: "⚠️ DANGER ZONE", btn_clear_hist: "Clear Complete History", switch_aisles_label: "🛒 Sort by Aisles / Zones:",
+            sync_title: "📱 Device Sync:", btn_copy_key: "Copy Key", btn_link_device: "Link Device", btn_unlink_device: "Unlink Device",
+            zone_entrance: "Zone 1: Entrance & Fresh", zone_dry: "Zone 2: Dry Aisles", zone_cold: "Zone 3: Cold & Meats", zone_home: "Zone 4: Cleaning & Care", zone_checkout: "Zone 5: Checkout & Frozen",
+            scanner_title: "Receipt Scanner", scanner_sub: "Scan your paper receipt after shopping. If it's long, capture it in multiple photos.",
+            btn_photo_ticket: "Tap to photograph receipt", photo_tip: "Hold camera close for sharp focus", ocr_local_tip: "Processed locally on your device",
+            acc_items_title: "Detected Items:", btn_add_more_photos: "📸 Add another section of receipt", btn_cancel: "Cancel", btn_import_app: "Import To App!",
+            prod_apples: "Apples", prod_bananas: "Bananas", prod_tomatoes: "Tomatoes", prod_lettuce: "Lettuce",
+            prod_chicken_breast: "Chicken Breast", prod_minced_meat: "Minced Meat", prod_detergent: "Laundry Detergent",
+            prod_floor_cleaner: "Floor Cleaner", prod_pack_milk: "Milk Pack 6L", prod_liter_milk: "Liter Milk",
+            prod_lentils_can: "Canned Lentils", prod_chickpeas: "Chickpeas", prod_olives_can: "Canned Olives", prod_tuna_can: "Canned Tuna"
+        },
+        fr: {
+            btn_cart: "Panier", search_ph: "🔍 Écrire un produit...", app_heading: "Dépenses Familiales",
+            tab_food: "ALIMENTATION", tab_home: "MAISON ET DIVERS",
+            cat_fruit: "Fruits", cat_veg: "Légumes", cat_meat: "Boucherie", cat_fish: "Poissonnerie", cat_milk: "Lait", cat_dairy: "Produits Laitiers", cat_coldcuts: "Charcuterie", cat_bread: "Pain/Boulangerie", cat_pantry: "Pâtes/Riz/Légumes", cat_eggs: "Œufs",
+            cat_oils: "Huiles", cat_canned: "Conserves", cat_coffee: "Café/Cacao", cat_drinks: "Boissons", cat_snacks: "Snacks/Friandises", cat_frozen: "Surgelés", cat_cleaning: "Nettoyage", cat_hygiene: "Hygiène", cat_paper: "Papier/Divers", cat_pets: "Animaux",
+            btn_pay: "PAYER", cafe_title: "☕ Offrez-moi un café",
+            cafe_desc: "<strong>SuperMart</strong> est gratuit et sans publicité.", pay_revolut: "💳 Payer par Carte / Google Pay", pay_paypal: "🅿️ Payer avec PayPal",
+            tut_title: "📖 Guide d'utilisation v3.2.1", tut_step1_b: "Avant de sortir:", tut_step1: "Préparez votre liste à la maison.", tut_step2_b: "En magasin:", tut_step2: "Ajustez les prix avec le crayon (✏️).", 
+            tut_step3_scan_b: "🧾 Nouveauté Scanner:", tut_step3_scan: "Utilisez le bouton flottant 🧾 pour photographier votre reçu en papier. Les prix et produits se placeront automatiquement.",
+            tut_step3_b: "Budget:", tut_step3: "Contrôlez la barre de couleur.", tut_step4_b: "Fini:", tut_step4: "Appuyez sur PAYER.", btn_understood: "Compris!",
+            calc_title: "🧮 Calculatrice", calc_use: "📋 Utiliser", offer_title: "⚖️ Calculateur d'offre:", price_label: "Prix:", grams_label: "Grammes:", units_label: "Qté:",
+            frequents_sub: "⚡ Produits fréquents:", add_product_sub: "📝 Ajouter produit:", name_ph: "Nom", price_ph: "Prix €", btn_save_list: "Enregistrer",
+            cart_title: "🛒 Produits dans le panier", btn_share_cart: "Partager sur WhatsApp", hist_title: "📜 Historique", settings_title: "⚙️ Paramètres",
+            lang_select_label: "🌐 Langue de l'application:", budget_limit_label: "Limite de budget (€):", btn_save_limit: "Enregistrer la limite", btn_buy_coffee: "☕ Offrez-moi un café", btn_view_hist: "📜 Voir l'historique", danger_zone: "⚠️ ZONE DE DANGER", btn_clear_hist: "Effacer l'historique", switch_aisles_label: "🛒 Trier par rayons:", sync_title: "📱 Synchronisation mobile:", btn_copy_key: "Copier clé", btn_link_device: "Lier appareil", btn_unlink_device: "Délier appareil",
+            zone_entrance: "Zone 1: Entrée & Frais", zone_dry: "Zone 2: Épicerie", zone_cold: "Zone 3: Froid & Viandes", zone_home: "Zone 4: Entretien", zone_checkout: "Zone 5: Caisse & Surgelés",
+            scanner_title: "Scanner de reçus", scanner_sub: "Scannez votre reçu après vos achats. S'il est long, prenez-le en plusieurs photos.",
+            btn_photo_ticket: "Toucher pour photographier", photo_tip: "Rapprochez l'appareil pour plus de netteté", ocr_local_tip: "Traité localement sur votre téléphone",
+            acc_items_title: "Produits Détectés:", btn_add_more_photos: "📸 Ajouter une autre section du reçu", btn_cancel: "Annuler", btn_import_app: "Importer Dans L'App!",
+            prod_apples: "Pommes", prod_bananas: "Bananes", prod_tomatoes: "Tomates", prod_lettuce: "Laitue",
+            prod_chicken_breast: "Blanc de Poulet", prod_minced_meat: "Viande Hachée", prod_detergent: "Lessive",
+            prod_floor_cleaner: "Nettoyant Sol", prod_pack_milk: "Pack de Lait 6L", prod_liter_milk: "Litre de Lait",
+            prod_lentils_can: "Lentilles en Boîte", prod_chickpeas: "Pois Chiches", prod_olives_can: "Olives en Boîte", prod_tuna_can: "Thon en Boîte"
+        },
+        it: {
+            btn_cart: "Carrello", search_ph: "🔍 Scrivi prodotto...", app_heading: "Spese Familiari",
+            tab_food: "ALIMENTARI", tab_home: "CASA E VARIE",
+            cat_fruit: "Frutta", cat_veg: "Verdura", cat_meat: "Macelleria", cat_fish: "Pescheria", cat_milk: "Latte", cat_dairy: "Latticini", cat_coldcuts: "Salumi", cat_bread: "Pane/Pasticceria", cat_pantry: "Pasta/Riso/Legumi", cat_eggs: "Uova",
+            cat_oils: "Oli", cat_canned: "Conserve", cat_coffee: "Caffè/Cacao", cat_drinks: "Bevande", cat_snacks: "Snack/Dolci", cat_frozen: "Surgelati", cat_cleaning: "Pulizia", cat_hygiene: "Igiene", cat_paper: "Carta/Varie", cat_pets: "Animali",
+            btn_pay: "PAGA", cafe_title: "☕ Offrimi un caffè", cafe_desc: "<strong>SuperMart</strong> è gratuita e senza pubblicità.", pay_revolut: "💳 Paga con Carta / Google Pay", pay_paypal: "🅿️ Paga con PayPal",
+            tut_title: "📖 Come usare SuperMart v3.2.1", tut_step1_b: "Prima di uscire:", tut_step1: "Prepara la lista da casa.", tut_step2_b: "Al supermercato:", tut_step2: "Usa la matita (✏️) per impostare il prezzo.", 
+            tut_step3_scan_b: "🧾 Novità Scanner:", tut_step3_scan: "Usa il pulsante galleggiante 🧾 per fotografare lo scontrino cartaceo. Prezzi e prodotti si aggiorneranno automaticamente.",
+            tut_step3_b: "Controllo spese:", tut_step3: "La barra indica il budget.", tut_step4_b: "Finito:", tut_step4: "Premi PAGA.", btn_understood: "Capito!",
+            calc_title: "🧮 Calcolatrice", calc_use: "📋 Usa", offer_title: "⚖️ Calcolatore Offerta:", price_label: "Prezzo:", grams_label: "Grammi:", units_label: "Qtà:",
+            frequents_sub: "⚡ Prodotti Frequenti:", add_product_sub: "📝 Aggiungi Prodotto:", name_ph: "Nome", price_ph: "Prezzo €", btn_save_list: "Salva in Lista",
+            cart_title: "🛒 Prodotti nel Carrello", btn_share_cart: "Condividi su WhatsApp", hist_title: "📜 Cronologia", settings_title: "⚙️ Impostazioni",
+            lang_select_label: "🌐 Lingua dell'App:", budget_limit_label: "Limite Budget (€):", btn_save_limit: "Salva Limite", btn_buy_coffee: "☕ Offrimi un caffè", btn_view_hist: "📜 Vedi Cronologia", danger_zone: "⚠️ ZONA PERICOLO", btn_clear_hist: "Cancella Cronologia", switch_aisles_label: "🛒 Ordina per Corsie:", sync_title: "📱 Sincronizzazione:", btn_copy_key: "Copia Chiave", btn_link_device: "Collega Dispositivo", btn_unlink_device: "Scollega Dispositivo",
+            zone_entrance: "Zona 1: Ingresso e Freschi", zone_dry: "Zona 2: Corsie Secche", zone_cold: "Zona 3: Freddo e Carne", zone_home: "Zona 4: Pulizia", zone_checkout: "Zona 5: Uscita e Surgelati",
+            scanner_title: "Scanner scontrini", scanner_sub: "Scansiona lo scontrino cartaceo dopo la spesa. Se è lungo, scatta più foto.",
+            btn_photo_ticket: "Tocca per fotografare scontrino", photo_tip: "Avvicina la fotocamera per mettere a fuoco", ocr_local_tip: "Elaborato localmente sul telefono",
+            acc_items_title: "Prodotti Rilevati:", btn_add_more_photos: "📸 Aggiungi altra foto dello scontrino", btn_cancel: "Annulla", btn_import_app: "Importa Nell'App!",
+            prod_apples: "Mele", prod_bananas: "Banane", prod_tomatoes: "Pomodori", prod_lettuce: "Lattuga",
+            prod_chicken_breast: "Petto di Pollo", prod_minced_meat: "Carne Macinata", prod_detergent: "Detersivo",
+            prod_floor_cleaner: "Lavapavimenti", prod_pack_milk: "Confezione Latte 6L", prod_liter_milk: "Litro di Latte",
+            prod_lentils_can: "Lenticchie in Scatola", prod_chickpeas: "Ceci", prod_olives_can: "Olive in Vaso", prod_tuna_can: "Tonno in Scatola"
+        },
+        de: {
+            btn_cart: "Warenkorb", search_ph: "🔍 Produkt eingeben...", app_heading: "Familienausgaben",
+            tab_food: "LEBENSMITTEL", tab_home: "HAUSHALT & MEHR",
+            cat_fruit: "Obst", cat_veg: "Gemüse", cat_meat: "Metzgerei", cat_fish: "Fisch", cat_milk: "Milch", cat_dairy: "Molkerei", cat_coldcuts: "Wurstwaren", cat_bread: "Brot/Gebäck", cat_pantry: "Nudeln/Reis/Bohnen", cat_eggs: "Eier",
+            cat_oils: "Öle", cat_canned: "Konserven", cat_coffee: "Kaffee/Kakao", cat_drinks: "Getränke", cat_snacks: "Snacks/Süßes", cat_frozen: "Tiefkühlkost", cat_cleaning: "Reinigung", cat_hygiene: "Hygiene", cat_paper: "Papier/Sonstiges", cat_pets: "Tiere",
+            btn_pay: "BEZAHLEN", cafe_title: "☕ Kaufe mir einen Kaffee", cafe_desc: "<strong>SuperMart</strong> ist 100% kostenlos ohne Werbung.", pay_revolut: "💳 Mit Karte / Google Pay zahlen", pay_paypal: "🅿️ Mit PayPal zahlen",
+            tut_title: "📖 Anleitung v3.2.1", tut_step1_b: "Vor dem Einkauf:", tut_step1: "Erstelle deine Liste zu Hause.", tut_step2_b: "Im Laden:", tut_step2: "Ändere den Preis mit dem Stift (✏️).", 
+            tut_step3_scan_b: "🧾 Neu Beleg-Scanner:", tut_step3_scan: "Nutze den schwebenden Button 🧾, um deinen Papierbeleg zu fotografieren. Preise und Artikel werden automatisch zugeordnet.",
+            tut_step3_b: "Budgetkontrolle:", tut_step3: "Achte auf den Farbbalten.", tut_step4_b: "Fertig:", tut_step4: "Tippe auf BEZAHLEN.", btn_understood: "Verstanden!",
+            calc_title: "🧮 Rechner", calc_use: "📋 Nutzen", offer_title: "⚖️ Angebotsrechner:", price_label: "Preis:", grams_label: "Gramm:", units_label: "Menge:",
+            frequents_sub: "⚡ Häufige Produkte:", add_product_sub: "📝 Produkt hinzufügen:", name_ph: "Name", price_ph: "Preis €", btn_save_list: "Speichern",
+            cart_title: "🛒 Artikel im Warenkorb", btn_share_cart: "Auf WhatsApp teilen", hist_title: "📜 Verlauf", settings_title: "⚙️ Einstellungen",
+            lang_select_label: "🌐 App-Sprache:", budget_limit_label: "Budgetlimit (€):", btn_save_limit: "Limit Speichern", btn_buy_coffee: "☕ Kaufe mir einen Kaffee", btn_view_hist: "📜 Verlauf Anzeigen", danger_zone: "⚠️ GEFAHRENZONE", btn_clear_hist: "Verlauf Löschen", switch_aisles_label: "🛒 Nach Gängen sortieren:", sync_title: "📱 Synchronisation:", btn_copy_key: "Schlüssel kopieren", btn_link_device: "Gerät verknüpfen", btn_unlink_device: "Gerät trennen",
+            zone_entrance: "Zone 1: Eingang & Frische", zone_dry: "Zone 2: Vorratskammer", zone_cold: "Zone 3: Kühlung & Fleisch", zone_home: "Zone 4: Reinigung", zone_checkout: "Zone 5: Kasse & Tiefkühl",
+            scanner_title: "Beleg-Scanner", scanner_sub: "Scanne deinen Papierbeleg nach dem Einkauf. Wenn er lang ist, mache mehere Fotos.",
+            btn_photo_ticket: "Tippen zum Fotografieren", photo_tip: "Kamera nah halten für Schärfe", ocr_local_tip: "Lokal auf dem Handy verarbeitet",
+            acc_items_title: "Erkannte Artikel:", btn_add_more_photos: "📸 Weitern Teil des Belegs hinzufügen", btn_cancel: "Abbrechen", btn_import_app: "In App Importieren!",
+            prod_apples: "Äpfel", prod_bananas: "Bananen", prod_tomatoes: "Tomaten", prod_lettuce: "Salat",
+            prod_chicken_breast: "Hähnchenbrust", prod_minced_meat: "Hackfleisch", prod_detergent: "Waschmittel",
+            prod_floor_cleaner: "Bodenreiniger", prod_pack_milk: "Milch 6L Pack", prod_liter_milk: "Liter Milch",
+            prod_lentils_can: "Linsen Dose", prod_chickpeas: "Kichererbsen", prod_olives_can: "Oliven Glas", prod_tuna_can: "Thunfisch Dose"
+        },
+        pt: {
+            btn_cart: "Carrinho", search_ph: "🔍 Digite o produto...", app_heading: "Despesas Familiares",
+            tab_food: "ALIMENTAÇÃO", tab_home: "CASA E VARIOS",
+            cat_fruit: "Fruta", cat_veg: "Legumes", cat_meat: "Talho", cat_fish: "Peixaria", cat_milk: "Leite", cat_dairy: "Lacticínios", cat_coldcuts: "Charcutaria", cat_bread: "Pão/Pastelaria", cat_pantry: "Massa/Arroz/Legumes", cat_eggs: "Ovos",
+            cat_oils: "Óleos", cat_canned: "Conservas", cat_coffee: "Café/Cacau", cat_drinks: "Bebidas", cat_snacks: "Doces/Snacks", cat_frozen: "Congelados", cat_cleaning: "Limpeza", cat_hygiene: "Higiene", cat_paper: "Papel/Vários", cat_pets: "Animais",
+            btn_pay: "PAGAR", cafe_title: "☕ Pague-me um café", cafe_desc: "<strong>SuperMart</strong> é 100% gratuito e sem anúncios.", pay_revolut: "💳 Pagar com Cartão / Google Pay", pay_paypal: "🅿️ Pagar com PayPal",
+            tut_title: "📖 Como usar SuperMart v3.2.1", tut_step1_b: "Antes de sair:", tut_step1: "Prepare a lista em casa.", tut_step2_b: "No supermercado:", tut_step2: "Ajuste preços com o lápis (✏️).", 
+            tut_step3_scan_b: "🧾 Novidade Scanner:", tut_step3_scan: "Use o botão flutuante 🧾 para fotografar o seu recibo de papel. Os preços e produtos serão atualizados automaticamente.",
+            tut_step3_b: "Controlo de gastos:", tut_step3: "Veja a barra de orçamento.", tut_step4_b: "Ao terminar:", tut_step4: "Toque em PAGAR.", btn_understood: "Entendido!",
+            calc_title: "🧮 Calculadora", calc_use: "📋 Usar", offer_title: "⚖️ Calculadora de Oferta:", price_label: "Preço:", grams_label: "Gramas:", units_label: "Qtd:",
+            frequents_sub: "⚡ Produtos Frequentes:", add_product_sub: "📝 Adicionar Produto:", name_ph: "Nome", price_ph: "Preço €", btn_save_list: "Guardar na Lista",
+            cart_title: "🛒 Produtos no Carrinho", btn_share_cart: "Partilhar no WhatsApp", hist_title: "📜 Histórico", settings_title: "⚙️ Configurações",
+            lang_select_label: "🌐 Idioma da Aplicação:", budget_limit_label: "Limite de Orçamento (€):", btn_save_limit: "Guardar Limite", btn_buy_coffee: "☕ Pague-me um café", btn_view_hist: "📜 Ver Histórico", danger_zone: "⚠️ ZONA DE PERIGO", btn_clear_hist: "Limpar Histórico Completo", switch_aisles_label: "🛒 Ordenar por Corredores:", sync_title: "📱 Sincronização:", btn_copy_key: "Copiar Chave", btn_link_device: "Vincular Dispositivo", btn_unlink_device: "Desvincular Dispositivo",
+            zone_entrance: "Zona 1: Entrada e Frescos", zone_dry: "Zona 2: Corredores Secos", zone_cold: "Zona 3: Frio e Carnes", zone_home: "Zona 4: Limpeza", zone_checkout: "Zona 5: Saída e Congelados",
+            scanner_title: "Scanner de recibos", scanner_sub: "Digitalize o recibo de papel após a compra. Se for longo, tire várias fotos.",
+            btn_photo_ticket: "Toque para fotografar recibo", photo_tip: "Aproxime a câmara para focar", ocr_local_tip: "Processado localmente no telemóvel",
+            acc_items_title: "Produtos Detetados:", btn_add_more_photos: "📸 Adicionar outra secção do recibo", btn_cancel: "Cancelar", btn_import_app: "Importar Para A App!",
+            prod_apples: "Maçãs", prod_bananas: "Bananas", prod_tomatoes: "Tomates", prod_lettuce: "Alface",
+            prod_chicken_breast: "Peito de Frango", prod_minced_meat: "Carne Picada", prod_detergent: "Detergente",
+            prod_floor_cleaner: "Detergente de Chão", prod_pack_milk: "Pack de Leite 6L", prod_liter_milk: "Litro de Leite",
+            prod_lentils_can: "Lentilhas em Lata", prod_chickpeas: "Grão de Bico", prod_olives_can: "Azeitonas em Frasco", prod_tuna_can: "Atum em Lata"
+        },
+        ca: {
+            btn_cart: "Cistella", search_ph: "🔍 Escriu un producte...", app_heading: "Despesa Familiar",
+            tab_food: "ALIMENTACIÓ", tab_home: "LLAR I VARIS",
+            cat_fruit: "Fruita", cat_veg: "Verdura", cat_meat: "Carnisseria", cat_fish: "Peixateria", cat_milk: "Llet", cat_dairy: "Làctics", cat_coldcuts: "Embotits", cat_bread: "Pa/Forneria", cat_pantry: "Llegums/Pasta/Arròs", cat_eggs: "Ous",
+            cat_oils: "Olis", cat_canned: "Conserves", cat_coffee: "Cafè/Cacau", cat_drinks: "Begudes", cat_snacks: "Snacks/Dolços", cat_frozen: "Congelats", cat_cleaning: "Neteja", cat_hygiene: "Higiene", cat_paper: "Paper/Varis", cat_pets: "Mascotes",
+            btn_pay: "PAGAR", cafe_title: "☕ Convida'm a un Cafè", cafe_desc: "<strong>SuperMart</strong> és una aplicació 100% gratuïta i sense anuncis.", pay_revolut: "💳 Pagar amb Targeta / Google Pay", pay_paypal: "🅿️ Pagar amb PayPal",
+            tut_title: "📖 Com usar SuperMart v3.2.1", tut_step1_b: "Abans de sortir:", tut_step1: "Prepara la teva llista des de casa.", tut_step2_b: "Al súper:", tut_step2: "Ajusta els preus amb el llapis (✏️).", 
+            tut_step3_scan_b: "🧾 Novetat Escàner:", tut_step3_scan: "Fes servir el botó flotant 🧾 per fotografiar el teu tiquet de paper. Els preus i productes es col·locaran automàticament.",
+            tut_step3_b: "Control de despesa:", tut_step3: "El semàfor t'avisarà del pressupost.", tut_step4_b: "En acabar:", tut_step4: "Prem PAGAR.", btn_understood: "Entès!",
+            calc_title: "🧮 Calculadora", calc_use: "📋 Usar", offer_title: "⚖️ Calculador d'Oferta:", price_label: "Preu:", grams_label: "Grams:", units_label: "Uts:",
+            frequents_sub: "⚡ Productes Freqüents:", add_product_sub: "📝 Apuntar Producte:", name_ph: "Nom", price_ph: "Preu €", btn_save_list: "Guardar a la Llista",
+            cart_title: "🛒 Productes a la Cistella", btn_share_cart: "Compartir per WhatsApp", hist_title: "📜 Historial de Compres", settings_title: "⚙️ Configuració",
+            lang_select_label: "🌐 Idioma de l'Aplicació:", budget_limit_label: "Límit de Pressupost (€):", btn_save_limit: "Guardar Límit", btn_buy_coffee: "☕ Convida'm a un cafè", btn_view_hist: "📜 Veure Historial Guardat", danger_zone: "⚠️ ZONA DE PERILL", btn_clear_hist: "Esborrar Historial Complet", switch_aisles_label: "🛒 Ordenar per Passadissos:", sync_title: "📱 Sincronització Dispositius:", btn_copy_key: "Copiar Clau", btn_link_device: "Vincular Mòbil", btn_unlink_dispositivo: "Desvincular Dispositiu",
+            zone_entrance: "Zona 1: Entrada i Frescos", zone_dry: "Zona 2: Passadissos Secs", zone_cold: "Zona 3: Murals de Fred i Carna", zone_home: "Zona 4: Neteja", zone_checkout: "Zona 5: Sortida i Congelats",
+            scanner_title: "Escàner de tiquets", scanner_sub: "Escaneja el teu tiquet de paper després de comprar. Si és llarg, fes-li diverses fotos.",
+            btn_photo_ticket: "Toca per fotografiar tiquet", photo_tip: "Apropa la càmera per a més nitidesa", ocr_local_tip: "Processat localment al teu mòbil",
+            acc_items_title: "Productes Detectats:", btn_add_more_photos: "📸 Afegir un altre tram del tiquet", btn_cancel: "Cancel·lar", btn_import_app: "Importar A L'App!",
+            prod_apples: "Pomes", prod_bananas: "Plàtans", prod_tomatoes: "Tomàquets", prod_lettuce: "Enciam",
+            prod_chicken_breast: "Pit de Pollastre", prod_minced_meat: "Carn Picada", prod_detergent: "Detergent",
+            prod_floor_cleaner: "Fregaterres", prod_pack_milk: "Pack Llet 6L", prod_liter_milk: "Llitre Llet",
+            prod_lentils_can: "Llenties de Brossa", prod_chickpeas: "Cigrons", prod_olives_can: "Olives de Brossa", prod_tuna_can: "Tonyina en Lata"
+        }
+    };
+
+    let langKey = localStorage.getItem('supermart_lang') || (navigator.language ? navigator.language.split('-')[0] : 'es');
+    if (!i18n[langKey]) langKey = 'es';
+    let t = i18n[langKey];
+
+    function cambiarIdiomaManual(lang) {
+        if(i18n[lang]) {
+            langKey = lang;
+            t = i18n[langKey];
+            localStorage.setItem('supermart_lang', langKey);
+            aplicarTraducciones();
+            actualizar();
+            if(categoriaActiva) renderFrecuentes();
+        }
+    }
+
+    function aplicarTraducciones() {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const k = el.getAttribute('data-i18n');
+            if(t[k]) el.innerHTML = t[k];
+        });
+        document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+            const k = el.getAttribute('data-i18n-ph');
+            if(t[k]) el.placeholder = t[k];
+        });
+        const sel = document.getElementById('selector-idioma');
+        if(sel) sel.value = langKey;
+    }
+
+    let db;
+    const dbName = "ControlGastoFamiliaDB";
+
+    function iniciarIndexedDB() {
+        return new Promise((resolve, reject) => {
+            if (navigator.storage && navigator.storage.persist) { navigator.storage.persist(); }
+            const req = indexedDB.open(dbName, 1);
+            req.onupgradeneeded = e => {
+                const database = e.target.result;
+                if (!database.objectStoreNames.contains('app_data')) { database.createObjectStore('app_data'); }
+            };
+            req.onsuccess = e => { db = e.target.result; resolve(db); };
+            req.onerror = e => reject("Error iniciando IndexedDB");
+        });
+    }
+
+    function guardarDatosDB(clave, valor) {
+        localStorage.setItem(clave, typeof valor === 'object' ? JSON.stringify(valor) : valor);
+        if (window.sincronizarCloud) { window.sincronizarCloud(clave, valor); }
+        if (!db) return;
+        const tx = db.transaction('app_data', 'readwrite');
+        tx.objectStore('app_data').put(valor, clave);
+    }
+
+    function obtenerDatoDB(clave) {
+        return new Promise((resolve) => {
+            if (!db) { resolve(null); return; }
+            const tx = db.transaction('app_data', 'readonly');
+            const req = tx.objectStore('app_data').get(clave);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+        });
+    }
+
+    // Estructura de productos base con IDs para traducción dinámica multilenguaje
+    const frecuentesBase = {
+        'Fruta': [
+            { id_prod: 'prod_apples', nombre: 'Manzanas', precio: 2.20, enCasa: false },
+            { id_prod: 'prod_bananas', nombre: 'Plátanos', precio: 1.80, enCasa: false }
+        ],
+        'Verdura': [
+            { id_prod: 'prod_tomatoes', nombre: 'Tomates', precio: 2.10, enCasa: false },
+            { id_prod: 'prod_lettuce', nombre: 'Lechuga', precio: 1.00, enCasa: false }
+        ],
+        'Carne': [
+            { id_prod: 'prod_chicken_breast', nombre: 'Pechuga Pollo', precio: 6.50, enCasa: false },
+            { id_prod: 'prod_minced_meat', nombre: 'Carne Picada', precio: 5.00, enCasa: false }
+        ],
+        'Limpieza': [
+            { id_prod: 'prod_detergent', nombre: 'Detergente', precio: 4.50, enCasa: false },
+            { id_prod: 'prod_floor_cleaner', nombre: 'Fregasuelos', precio: 1.80, enCasa: false }
+        ],
+        'Leche': [
+            { id_prod: 'prod_pack_milk', nombre: 'Pack Leche 6L', precio: 6.90, enCasa: false },
+            { id_prod: 'prod_liter_milk', nombre: 'Litro Leche', precio: 1.15, enCasa: false }
+        ],
+        'Pasta/Arroz': [
+            { id_prod: 'prod_lentils_can', nombre: 'Lentejas Bote', precio: 0.90, enCasa: false },
+            { id_prod: 'prod_chickpeas', nombre: 'Garbanzos', precio: 1.10, enCasa: false }
+        ],
+        'Conservas': [
+            { id_prod: 'prod_olives_can', nombre: 'Aceitunas Bote', precio: 1.45, enCasa: false },
+            { id_prod: 'prod_tuna_can', nombre: 'Lata Atún', precio: 2.50, enCasa: false }
+        ]
+    };
+
+    function obtenerNombreProducto(prod) {
+        if (prod.id_prod && i18n[langKey] && i18n[langKey][prod.id_prod]) {
+            return i18n[langKey][prod.id_prod];
+        }
+        return prod.nombre;
+    }
+
+    let habituales = frecuentesBase;
+    let limitePresupuesto = 150;
+    let carroActual = [];
+    let historialCompras = [];
+    let modoPasillos = false;
+    let categoriaActiva = '';
+    let uds = 1, fSize = 14;
+    let calcExpr = '';
+
+    if (localStorage.getItem('modo_noche') === 'true') document.body.classList.add('noche');
+
+    function toggleModoNoche() {
+        document.body.classList.toggle('noche');
+        localStorage.setItem('modo_noche', document.body.classList.contains('noche'));
+    }
+
+    function toggleModoPasillos(activado) {
+        modoPasillos = activado;
+        guardarDatosDB('modo_pasillos_v270', modoPasillos);
+        aplicarModoVista();
+    }
+
+    function aplicarModoVista() {
+        const clasica = document.getElementById('vista-clasica');
+        const pasillos = document.getElementById('vista-pasillos');
+        const tabs = document.getElementById('contenedor-tabs');
+        const sw = document.getElementById('switch-pasillos');
+
+        if (sw) sw.checked = modoPasillos;
+
+        if (modoPasillos) {
+            if (clasica) clasica.style.display = 'none';
+            if (tabs) tabs.style.display = 'none';
+            if (pasillos) {
+                pasillos.style.display = 'block';
+                const pantallaPasillos = pasillos.querySelector('.pantalla');
+                if (pantallaPasillos) {
+                    pantallaPasillos.style.display = 'grid';
+                }
+            }
+        } else {
+            if (clasica) clasica.style.display = 'block';
+            if (tabs) tabs.style.display = 'flex';
+            if (pasillos) pasillos.style.display = 'none';
+        }
+        actualizar();
+    }
+
+    function setU(n, btn) {
+        uds = n;
+        document.querySelectorAll('.u-btn').forEach(b => b.classList.remove('active'));
+        if(btn) btn.classList.add('active');
+    }
+
+    function ajustarLetra(n) {
+        fSize += n;
+        document.documentElement.style.setProperty('--fuente-btn', fSize + 'px');
+    }
+
+    function cambiarTab(n) {
+        document.querySelectorAll('.tab, .pantalla').forEach(el => el.classList.remove('active'));
+        document.getElementById('t' + n).classList.add('active');
+        document.getElementById('p' + n).classList.add('active');
+    }
+
+    // Avisos diferenciados por color: 'exito' (verde) para carro, 'info' (azul) para listas/configuración
+    function mostrarToast(msg, tipo = 'exito') {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.className = tipo === 'info' ? 'toast-info' : 'toast-exito';
+        t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, 1800);
+    }
+
+    function sumar(nombre, precio, categoria) {
+        const pNum = parseFloat(precio) || 0;
+        const existente = carroActual.find(item => item.nombre.toLowerCase() === nombre.toLowerCase());
+        
+        if (existente) {
+            const numUnidadesSumar = uds;
+            if (!confirm(`⚠️ "${nombre}" ${langKey === 'es' ? 'ya está en el carro' : 'is already in cart'} (${existente.unidades}x).\n\n${langKey === 'es' ? '¿Quieres sumar' : 'Add'} ${numUnidadesSumar} ${langKey === 'es' ? 'unidad(es) más con precio' : 'more unit(s) with price'} ${pNum.toFixed(2)}€?`)) {
+                return;
+            }
+            existente.unidades += numUnidadesSumar;
+            existente.precioUnitario = pNum;
+            existente.total = existente.unidades * existente.precioUnitario;
+            mostrarToast(`✓ ¡Sumado +${numUnidadesSumar} a ${nombre}!`, 'exito');
+        } else {
+            const importe = pNum * uds;
+            carroActual.push({ id: Date.now(), nombre: nombre, categoria: categoria, precioUnitario: pNum, unidades: uds, total: importe, cogido: false });
+            mostrarToast(`✓ ¡${nombre} (${uds}x) ${langKey === 'es' ? 'añadido!' : 'added!'}`, 'exito');
+        }
+
+        uds = 1;
+        resetSelectorUds();
+        actualizar();
+        if(navigator.vibrate) navigator.vibrate(40);
+    }
+
+    function sumarFrecuentePorIndice(index) {
+        if (!habituales[categoriaActiva] || !habituales[categoriaActiva][index]) return;
+        const prod = habituales[categoriaActiva][index];
+        const nombreUsar = obtenerNombreProducto(prod);
+        sumar(nombreUsar, prod.precio, categoriaActiva);
+    }
+
+    function editarPrecioDirectoCarro(id, nuevoValorStr) {
+        const item = carroActual.find(p => p.id === id);
+        if (!item) return;
+
+        const pNum = parseFloat(nuevoValorStr.replace(',', '.'));
+        if (isNaN(pNum) || pNum < 0) return;
+
+        item.precioUnitario = pNum;
+        item.total = item.unidades * item.precioUnitario;
+        
+        actualizar();
+        renderDesglose();
+        mostrarToast(`✏️ ${langKey === 'es' ? 'Precio actualizado:' : 'Price updated:'} ${item.nombre} (${pNum.toFixed(2)}€)`, 'info');
+    }
+
+    function toggleCogido(id) {
+        const item = carroActual.find(p => p.id === id);
+        if (item) {
+            item.cogido = !item.cogido;
+            actualizar();
+            renderDesglose();
+            if(navigator.vibrate) navigator.vibrate(30);
+        }
+    }
+
+    function deshacer() {
+        if (carroActual.length > 0) {
+            carroActual.pop();
+            actualizar();
+            if(navigator.vibrate) navigator.vibrate(60);
+        }
+    }
+
+    function eliminarDelCarro(id) {
+        carroActual = carroActual.filter(item => item.id !== id);
+        actualizar();
+        renderDesglose();
+    }
+
+    function resetSelectorUds() {
+        document.querySelectorAll('.u-btn').forEach(b => b.classList.remove('active'));
+        const u1Btns = document.querySelectorAll('.u-btn');
+        if(u1Btns.length > 0) u1Btns[0].classList.add('active');
+    }
+
+    function calcularTotal() { return carroActual.reduce((acc, item) => acc + (parseFloat(item.total) || 0), 0); }
+
+    function actualizar() {
+        const total = calcularTotal();
+        guardarDatosDB('carro_temp', carroActual);
+
+        document.getElementById('total').innerText = total.toFixed(2) + '€';
+        document.getElementById('status').innerText = `${t.budget_limit_label.replace(' (€):', '') || 'Límite'}: ${limitePresupuesto.toFixed(2)}€`;
+        
+        const porc = (total / limitePresupuesto) * 100;
+        const barra = document.getElementById('barra-progreso');
+        barra.style.width = Math.min(porc, 100) + "%";
+        barra.style.background = porc > 90 ? "var(--rojo)" : (porc > 70 ? "#f1c40f" : "var(--verde)");
+        
+        const hDiv = document.getElementById('hist-list');
+        if (historialCompras.length > 0) {
+            const ultima = historialCompras[0];
+            hDiv.innerHTML = `<b>🛒 ${langKey === 'es' ? 'Última compra' : 'Last purchase'} (${ultima.supermercado || 'Súper'} - ${ultima.fecha}):</b> ${ultima.total.toFixed(2)}€ <i>(${langKey === 'es' ? 'Toca para ver la lista' : 'Tap to view list'})</i>`;
+        } else {
+            hDiv.innerHTML = `<b>${langKey === 'es' ? 'Última compra:' : 'Last purchase:'}</b> ${langKey === 'es' ? 'Sin compras recientes guardadas.' : 'No recent saved purchases.'}`;
+        }
+
+        const subtotales = {};
+        const categoriasConCero = new Set();
+
+        for (let cat in habituales) {
+            if (habituales[cat].some(p => parseFloat(p.precio) === 0)) {
+                categoriasConCero.add(cat);
+            }
+        }
+
+        carroActual.forEach(item => {
+            const pUnit = parseFloat(item.precioUnitario) || 0;
+            if (pUnit === 0 || item.total === 0) {
+                categoriasConCero.add(item.categoria);
+            }
+            subtotales[item.categoria] = (subtotales[item.categoria] || 0) + item.total;
+        });
+        
+        document.querySelectorAll('.subtotal-tag').forEach(tag => {
+            const cat = tag.id.replace('sub-', '').replace('subp-', '');
+            if (categoriasConCero.has(cat)) {
+                tag.innerText = '⚠️ 0.00€';
+                tag.style.color = 'var(--rojo)';
+                tag.style.background = 'rgba(192, 57, 43, 0.25)';
+            } else {
+                tag.innerText = (subtotales[cat] || 0).toFixed(2) + '€';
+                tag.style.color = 'var(--azul)';
+                tag.style.background = 'rgba(255, 255, 255, 0.7)';
+            }
+        });
+
+        calcularGastoMensual();
+    }
+
+    function calcularGastoMensual() {
+        const mesActual = new Date().getMonth();
+        const anioActual = new Date().getFullYear();
+        let totalMes = 0;
+        historialCompras.forEach(c => {
+            const partes = c.fecha.split('/');
+            if(partes.length >= 3) {
+                let anio = parseInt(partes[2].length === 2 ? '20' + partes[2] : partes[2]);
+                let mes = parseInt(partes[1]) - 1;
+                if(mes === mesActual && anio === anioActual) totalMes += c.total;
+            }
+        });
+        const el = document.getElementById('resumen-gasto-mes');
+        if(el) el.innerHTML = `📊 ${langKey === 'es' ? 'Gasto acumulado este mes' : 'Total spent this month'}: <strong>${totalMes.toFixed(2)}€</strong>`;
+    }
+
+    function filtrarProductos() {
+        const rawTxt = document.getElementById('buscador').value;
+        const txt = rawTxt.toLowerCase().trim();
+        const sugBox = document.getElementById('sugerencias');
+        sugBox.innerHTML = '';
+
+        if(txt === '') { sugBox.style.display = 'none'; return; }
+
+        let coincidenciasDirectas = [];
+        for (let cat in habituales) {
+            habituales[cat].forEach(p => {
+                const nombreVisual = obtenerNombreProducto(p);
+                if(nombreVisual.toLowerCase().includes(txt) || p.nombre.toLowerCase().includes(txt)) {
+                    coincidenciasDirectas.push({ ...p, nombreVisual: nombreVisual, categoria: cat });
+                }
+            });
+        }
+
+        sugBox.style.display = 'block';
+
+        if(coincidenciasDirectas.length > 0) {
+            coincidenciasDirectas.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sugerencia-item';
+                div.innerHTML = `<span><strong>${item.nombreVisual}</strong> (${item.categoria})</span><span style="color:var(--azul); font-weight:bold;">📂 ${langKey === 'es' ? 'Ver en categoría' : 'View in category'}</span>`;
+                div.onclick = () => {
+                    document.getElementById('buscador').value = '';
+                    sugBox.style.display = 'none';
+                    abrirCategoria(item.categoria);
+                };
+                sugBox.appendChild(div);
+            });
+        }
+
+        let categoriaSugerida = null;
+        for (let cat in diccionarioSmartCategorias) {
+            const palabrasClave = diccionarioSmartCategorias[cat];
+            if (palabrasClave.some(p => txt.includes(p) || p.includes(txt))) {
+                categoriaSugerida = cat;
+                break;
+            }
+        }
+
+        if (categoriaSugerida) {
+            const divSmart = document.createElement('div');
+            divSmart.className = 'sugerencia-item';
+            divSmart.style.background = 'rgba(44, 94, 138, 0.08)';
+            divSmart.style.borderLeft = '4px solid var(--azul)';
+            divSmart.innerHTML = `<span>🔎 <strong>${rawTxt.trim()}</strong> → ${langKey === 'es' ? 'Abrir categoría' : 'Open category'} <strong>${categoriaSugerida}</strong></span><span style="color:var(--azul); font-weight:bold;">📂 ${langKey === 'es' ? 'Abrir' : 'Open'}</span>`;
+            divSmart.onclick = () => {
+                const nombreIngresado = rawTxt.trim();
+                document.getElementById('buscador').value = '';
+                sugBox.style.display = 'none';
+                abrirCategoriaConPreRelleno(categoriaSugerida, nombreIngresado);
+            };
+            sugBox.appendChild(divSmart);
+        } else if (coincidenciasDirectas.length === 0) {
+            sugBox.innerHTML = `<div class="sugerencia-item" style="color:gray;">${langKey === 'es' ? 'No está en frecuentes. Abre la categoría correspondiente para añadirlo.' : 'Not in frequent items. Open a category to add it.'}</div>`;
+        }
+    }
+
+    function abrirCategoriaConPreRelleno(cat, nombreProducto) {
+        abrirCategoria(cat);
+        const inputNombre = document.getElementById('nuevo-nombre');
+        if(inputNombre && nombreProducto) {
+            inputNombre.value = nombreProducto.charAt(0).toUpperCase() + nombreProducto.slice(1);
+            inputNombre.focus();
+        }
+    }
+
+    function abrirCategoria(cat) {
+        categoriaActiva = cat;
+        document.getElementById('modal-cat-titulo').innerText = cat;
+        renderFrecuentes();
+        abrirModal('modal-cat');
+    }
+
+    function renderFrecuentes() {
+        const cont = document.getElementById('lista-frecuentes');
+        const lista = habituales[categoriaActiva] || [];
+        if(lista.length === 0) {
+            cont.innerHTML = `<p style='font-size:12px; color:gray;'>${langKey === 'es' ? 'No hay productos frecuentes aún.' : 'No frequent products yet.'}</p>`;
+            return;
+        }
+        cont.innerHTML = lista.map((prod, index) => {
+            const nombreMostrar = obtenerNombreProducto(prod);
+            return `
+                <div class="item-habitual-card ${prod.enCasa ? 'en-casa' : ''}">
+                    <div class="item-habitual-info">
+                        <strong>${nombreMostrar} ${prod.enCasa ? (langKey === 'es' ? '✅ (En casa)' : '✅ (At home)') : ''}</strong>
+                        <span class="item-habitual-precio-badge" style="background:${prod.precio > 0 ? 'var(--azul)' : 'var(--rojo)'}">${prod.precio > 0 ? parseFloat(prod.precio).toFixed(2) + '€' : '⚠️ 0.00€'}</span>
+                    </div>
+                    <div class="item-habitual-acciones">
+                        <button class="btn-mini" style="background:${prod.enCasa ? 'var(--verde)' : 'rgba(0,0,0,0.1)'}; color:${prod.enCasa ? 'white' : 'var(--texto)'}" onclick="toggleEnCasa(${index})" title="Marcar en casa">🏠</button>
+                        <button class="btn-mini" style="background:rgba(0,0,0,0.15); color:var(--texto);" onclick="editarNombreYPrecioHabitual(${index})" title="Editar nombre y precio">✏️</button>
+                        <button class="btn-mini" style="background:var(--verde); color:white; padding:8px 14px;" onclick="sumarFrecuentePorIndice(${index})">+ ${langKey === 'es' ? 'Añadir' : 'Add'}</button>
+                        <button class="btn-mini" style="background:var(--rojo); color:white;" onclick="eliminarHabitual(${index})">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function toggleEnCasa(index) {
+        if(!habituales[categoriaActiva]) return;
+        habituales[categoriaActiva][index].enCasa = !habituales[categoriaActiva][index].enCasa;
+        guardarDatosDB('habituales_v130', habituales);
+        renderFrecuentes();
+    }
+
+    function editarNombreYPrecioHabitual(index) {
+        const prod = habituales[categoriaActiva][index];
+        const nombreAnterior = obtenerNombreProducto(prod);
+        const nuevoNombre = prompt(`${langKey === 'es' ? 'Corregir nombre del producto' : 'Edit product name'}:`, nombreAnterior);
+        if (nuevoNombre === null || nuevoNombre.trim() === '') return;
+
+        const nuevoPrecioStr = prompt(`${langKey === 'es' ? 'Actualizar precio para' : 'Update price for'} "${nuevoNombre.trim()}":`, prod.precio > 0 ? parseFloat(prod.precio).toFixed(2) : '0.00');
+        if (nuevoPrecioStr === null) return;
+
+        const nuevoPrecio = parseFloat(nuevoPrecioStr.replace(',', '.'));
+        if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
+            alert(langKey === 'es' ? "Por favor introduce un precio válido." : "Please enter a valid price.");
+            return;
+        }
+
+        // Si se edita manualmente el nombre, eliminamos la clave id_prod para fijar el texto del usuario
+        delete prod.id_prod;
+        prod.nombre = nuevoNombre.trim();
+        prod.precio = nuevoPrecio;
+        guardarDatosDB('habituales_v130', habituales);
+
+        const enCarro = carroActual.find(item => item.nombre.toLowerCase() === nombreAnterior.toLowerCase());
+        if (enCarro) {
+            enCarro.nombre = prod.nombre;
+            enCarro.precioUnitario = prod.precio;
+            enCarro.total = enCarro.unidades * enCarro.precioUnitario;
+            actualizar();
+        }
+
+        renderFrecuentes();
+        actualizar();
+        mostrarToast(`✏️ ${langKey === 'es' ? 'Actualizado:' : 'Updated:'} ${prod.nombre} (${nuevoPrecio.toFixed(2)}€)`, 'info');
+    }
+
+    function guardarNuevoEnLista() {
+        const inputNombre = document.getElementById('nuevo-nombre');
+        const inputPrecio = document.getElementById('nuevo-precio');
+        const nombre = inputNombre.value.trim();
+        let precio = parseFloat(inputPrecio.value);
+
+        if(!nombre) {
+            alert(langKey === 'es' ? "Escribe el nombre del producto." : "Enter product name.");
+            return;
+        }
+
+        if (isNaN(precio) || precio < 0) precio = 0.00;
+
+        if(!habituales[categoriaActiva]) habituales[categoriaActiva] = [];
+        // Guardamos el producto nuevo personalizado sin clave id_prod
+        habituales[categoriaActiva].push({ nombre: nombre, precio: precio, enCasa: false });
+        
+        guardarDatosDB('habituales_v130', habituales);
+
+        inputNombre.value = '';
+        inputPrecio.value = '';
+        renderFrecuentes();
+        actualizar();
+        mostrarToast(precio > 0 ? `📌 ${nombre} ${langKey === 'es' ? 'guardado en lista' : 'saved to list'}` : `📌 ${nombre} ${langKey === 'es' ? 'apuntado (0.00€)' : 'added (0.00€)'}`, 'info');
+    }
+
+    function eliminarHabitual(index) {
+        habituales[categoriaActiva].splice(index, 1);
+        guardarDatosDB('habituales_v130', habituales);
+        renderFrecuentes();
+        actualizar();
+    }
+
+    /* --- ESCÁNER DE TICKETS MULTIFOTO (OCR TESSERACT.JS) --- */
+    let productosDetectadosTicket = [];
+
+    function abrirModalEscaner() {
+        abrirModal('modal-escaner');
+        resetearModalEscaner();
+    }
+
+    function cerrarModalEscaner() {
+        cerrarModal('modal-escaner');
+        resetearModalEscaner();
+    }
+
+    function resetearModalEscaner() {
+        document.getElementById('input-foto-ticket').value = '';
+        document.getElementById('vista-previa-contenedor').style.display = 'none';
+        document.getElementById('instrucciones-subida').style.display = 'block';
+        document.getElementById('loader-escaner').style.display = 'none';
+        document.getElementById('contenedor-resultados-ticket').style.display = 'none';
+        document.getElementById('lista-items-detectados').innerHTML = '';
+        document.getElementById('btn-guardar-ticket').disabled = true;
+        document.getElementById('texto-boton-captura').textContent = t.btn_photo_ticket || 'Toca para fotografiar ticket';
+        productosDetectadosTicket = [];
+    }
+
+    function procesarFotoTicket(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('img-vista-previa').src = e.target.result;
+            document.getElementById('vista-previa-contenedor').style.display = 'block';
+            document.getElementById('instrucciones-subida').style.display = 'none';
+            iniciarLecturaOCR(file);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function iniciarLecturaOCR(file) {
+        const loader = document.getElementById('loader-escaner');
+        const textoProgreso = document.getElementById('texto-progreso-ocr');
+        const btnGuardar = document.getElementById('btn-guardar-ticket');
+
+        loader.style.display = 'block';
+        btnGuardar.disabled = true;
+
+        try {
+            const worker = await Tesseract.createWorker('spa', 1, {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        textoProgreso.textContent = `Analizando... ${Math.round((m.progress || 0) * 100)}%`;
+                    }
+                }
+            });
+
+            const { data: { lines } } = await worker.recognize(file);
+            await worker.terminate();
+
+            const regexPrecio = /(\d+[.,]\d{2})\s*$/;
+
+            lines.forEach(linea => {
+                const textoLimpio = linea.text.trim();
+                const match = textoLimpio.match(regexPrecio);
+
+                if (match) {
+                    const precio = parseFloat(match[1].replace(',', '.'));
+                    let nombre = textoLimpio.replace(regexPrecio, '').trim();
+                    nombre = nombre.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]+/, '');
+
+                    const esTotalOFactura = /total|subtotal|iva|base|efectivo|tarjeta|fecha|gracias|caja|importe/i.test(nombre);
+
+                    if (nombre.length >= 3 && !isNaN(precio) && precio > 0 && !esTotalOFactura) {
+                        const nombreCap = capitalizarTexto(nombre);
+                        const yaExiste = productosDetectadosTicket.some(p => p.nombre.toLowerCase() === nombreCap.toLowerCase() && p.precio === precio);
+
+                        if (!yaExiste) {
+                            productosDetectadosTicket.push({
+                                nombre: nombreCap,
+                                precio: precio,
+                                categoria: detectarCategoriaAutomatica(nombreCap)
+                            });
+                        }
+                    }
+                }
+            });
+
+            loader.style.display = 'none';
+            document.getElementById('texto-boton-captura').textContent = t.btn_add_more_photos || '📸 Añadir otra foto del ticket';
+            renderizarProductosDetectados();
+
+        } catch (error) {
+            console.error('❌ Error OCR:', error);
+            loader.style.display = 'none';
+            alert(langKey === 'es' ? 'No se pudo procesar la imagen. Intenta fotografiar con más luz y enfoque.' : 'Image processing failed. Try taking photo with more light.');
+        }
+    }
+
+    function renderizarProductosDetectados() {
+        const contenedorResultados = document.getElementById('contenedor-resultados-ticket');
+        const listaItems = document.getElementById('lista-items-detectados');
+        const totalDetectados = document.getElementById('total-detectados');
+        const btnGuardar = document.getElementById('btn-guardar-ticket');
+
+        listaItems.innerHTML = '';
+        totalDetectados.textContent = `${productosDetectadosTicket.length} acumulados`;
+
+        if (productosDetectadosTicket.length === 0) {
+            listaItems.innerHTML = `<p style="text-align:center; color:gray; padding:10px 0; margin:0;">${langKey === 'es' ? 'No se reconocieron precios claros en esta foto.' : 'No clear prices recognized in this photo.'}</p>`;
+            contenedorResultados.style.display = 'block';
+            return;
+        }
+
+        productosDetectadosTicket.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:5px; border-bottom:1px solid rgba(0,0,0,0.06);';
+            div.innerHTML = `
+                <div style="flex:1; padding-right:6px;">
+                    <input type="text" value="${item.nombre}" onchange="actualizarItemTicket(${index}, 'nombre', this.value)" 
+                        style="background:transparent; border:none; border-bottom:1px solid var(--azul); color:var(--texto); font-weight:bold; width:100%; font-size:12px;">
+                    <small style="color:var(--azul); font-size:10px; font-weight:bold;">${item.categoria}</small>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <input type="number" step="0.01" value="${item.precio.toFixed(2)}" onchange="actualizarItemTicket(${index}, 'precio', this.value)" 
+                        style="width:55px; padding:3px; border-radius:4px; border:1px solid #ccc; text-align:right; font-weight:bold; font-size:12px; color:var(--verde);">
+                    <span>€</span>
+                    <button onclick="eliminarItemTicket(${index})" style="background:var(--rojo); color:white; border:none; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:11px;">✕</button>
+                </div>
+            `;
+            listaItems.appendChild(div);
+        });
+
+        contenedorResultados.style.display = 'block';
+        btnGuardar.disabled = false;
+    }
+
+    function actualizarItemTicket(index, campo, valor) {
+        if (campo === 'precio') {
+            productosDetectadosTicket[index].precio = parseFloat(valor) || 0;
+        } else {
+            productosDetectadosTicket[index].nombre = valor;
+        }
+    }
+
+    function eliminarItemTicket(index) {
+        productosDetectadosTicket.splice(index, 1);
+        renderizarProductosDetectados();
+    }
+
+    function capitalizarTexto(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }
+
+    function detectarCategoriaAutomatica(nombre) {
+        const n = nombre.toLowerCase();
+        for (let cat in diccionarioSmartCategorias) {
+            const palabras = diccionarioSmartCategorias[cat];
+            if (palabras.some(p => n.includes(p))) return cat;
+        }
+        return 'Papel/Varios';
+    }
+
+    async function confirmarImportacionTicket() {
+        if (productosDetectadosTicket.length === 0) return;
+
+        let importadosCount = 0;
+
+        productosDetectadosTicket.forEach(item => {
+            const catTarget = item.categoria || 'Papel/Varios';
+            if (!habituales[catTarget]) habituales[catTarget] = [];
+
+            const existente = habituales[catTarget].find(p => p.nombre.toLowerCase() === item.nombre.toLowerCase());
+            if (existente) {
+                existente.precio = item.precio;
+            } else {
+                habituales[catTarget].push({ nombre: item.nombre, precio: item.precio, enCasa: false });
+            }
+            importadosCount++;
+        });
+
+        guardarDatosDB('habituales_v130', habituales);
+        actualizar();
+        if (categoriaActiva) renderFrecuentes();
+
+        cerrarModalEscaner();
+        alert(langKey === 'es' ? `¡${importadosCount} productos importados y sincronizados correctamente en tus tarjetas!` : `¡${importadosCount} items successfully imported to your app!`);
+    }
+
+    function calcInput(val) {
+        const disp = document.getElementById('calc-display');
+        if (val === 'C') { calcExpr = ''; disp.innerText = '0'; }
+        else if (val === '=') {
+            try {
+                let res = eval(calcExpr);
+                calcExpr = res.toString();
+                disp.innerText = parseFloat(res).toFixed(2);
+            } catch (e) { disp.innerText = 'Error'; calcExpr = ''; }
+        } else { calcExpr += val; disp.innerText = calcExpr; }
+    }
+
+    function usarResultadoCalc() {
+        const val = parseFloat(document.getElementById('calc-display').innerText);
+        if (!isNaN(val) && val > 0) {
+            document.getElementById('nuevo-precio').value = val;
+            cerrarModal('modal-calc');
+        }
+    }
+
+    function calcularPrecioKilo() {
+        const p = parseFloat(document.getElementById('of-precio').value);
+        const g = parseFloat(document.getElementById('of-gramos').value);
+        if (!isNaN(p) && !isNaN(g) && g > 0) {
+            calcExpr = ((p / g) * 1000).toFixed(2);
+            document.getElementById('calc-display').innerText = calcExpr;
+        }
+    }
+
+    function preguntarSupermercadoYGuardar() {
+        const total = calcularTotal();
+        if(total === 0) return;
+
+        const supermercado = prompt(langKey === 'es' ? "¿En qué supermercado has comprado?\n(Ej. Mercadona, Carrefour, Lidl, Día, Alcampo...)" : "Which supermarket did you shop at?\n(e.g., Walmart, Tesco, Lidl, Carrefour...)", "Mercadona");
+        if (supermercado === null) return;
+
+        const fecha = new Date().toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'});
+        
+        historialCompras.unshift({
+            id: Date.now(),
+            fecha: fecha,
+            supermercado: supermercado.trim() || 'Supermercado',
+            total: total,
+            productos: [...carroActual]
+        });
+
+        if(historialCompras.length > 15) historialCompras.pop();
+        
+        guardarDatosDB('compras_detalladas_v150', historialCompras);
+
+        carroActual = [];
+        actualizar();
+        alert(langKey === 'es' ? "¡Compra guardada con su desglose! Carro vacío para la siguiente." : "Purchase saved with breakdown! Cart cleared for the next one.");
+    }
+
+    function compartirListaActivaWhatsApp() {
+        if (carroActual.length === 0) {
+            alert(langKey === 'es' ? "El carro está vacío. Añade productos antes de compartir." : "Cart is empty. Add products before sharing.");
+            return;
+        }
+        let text = `🛒 *${langKey === 'es' ? 'Lista de la Compra - SuperMart' : 'Shopping List - SuperMart'}*\n`;
+        carroActual.forEach(p => {
+            text += `• ${p.nombre} (${p.unidades}x ${p.precioUnitario.toFixed(2)}€) = ${p.total.toFixed(2)}€\n`;
+        });
+        text += `*TOTAL: ${calcularTotal().toFixed(2)}€*`;
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    function abrirModal(id) {
+        if(id === 'modal-desglose') renderDesglose();
+        if(id === 'modal-historial') renderHistorialDetallado();
+        if(id === 'modal-ajustes') {
+            document.getElementById('input-limite').value = limitePresupuesto;
+            const uidInput = document.getElementById('clave-uid-display');
+            if(uidInput) uidInput.value = localStorage.getItem('supermart_uid') || '';
+        }
+        document.getElementById(id).classList.add('active');
+    }
+
+    function abrirHistorialDirecto() {
+        cerrarModal('modal-ajustes');
+        abrirModal('modal-historial');
+    }
+
+    function cerrarModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function renderDesglose() {
+        const cont = document.getElementById('lista-carro');
+        if(carroActual.length === 0) { cont.innerHTML = `<p style='text-align:center;'>${langKey === 'es' ? 'El carro está vacío.' : 'Cart is empty.'}</p>`; return; }
+        
+        const totalItems = carroActual.length;
+        const cogidosCount = carroActual.filter(i => i.cogido).length;
+
+        let htmlResumen = `
+            <div style="background:rgba(0,0,0,0.05); padding:8px 12px; border-radius:8px; margin-bottom:12px; font-size:13px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
+                <span>📋 ${langKey === 'es' ? 'Listos:' : 'Ready:'} ${cogidosCount} ${langKey === 'es' ? 'de' : 'of'} ${totalItems}</span>
+                <span style="color:${cogidosCount === totalItems ? 'var(--verde)' : 'var(--azul)'}">${cogidosCount === totalItems ? (langKey === 'es' ? '✅ ¡Compra completa!' : '✅ Shopping complete!') : (langKey === 'es' ? '⏳ Pendientes: ' : '⏳ Pending: ') + (totalItems - cogidosCount)}</span>
+            </div>
+        `;
+
+        cont.innerHTML = htmlResumen + carroActual.map(item => `
+            <div class="item-carro ${item.cogido ? 'completado' : ''}">
+                <div style="display:flex; align-items:center; flex:1; cursor:pointer;" onclick="irACategoriaDesdeCarro('${item.categoria}')">
+                    <button class="btn-check-carro ${item.cogido ? 'activo' : ''}" onclick="event.stopPropagation(); toggleCogido(${item.id});" title="Marcar como metido en el carro">
+                        ${item.cogido ? '✓' : '◯'}
+                    </button>
+                    <div>
+                        <strong>${item.nombre}</strong> <small>(${item.unidades}x)</small><br>
+                        <div style="display:flex; align-items:center; gap:4px; margin-top:2px;" onclick="event.stopPropagation();">
+                            <input type="number" step="0.01" value="${item.precioUnitario > 0 ? parseFloat(item.precioUnitario).toFixed(2) : '0.00'}" 
+                                onchange="editarPrecioDirectoCarro(${item.id}, this.value)" 
+                                style="width:65px; padding:2px 4px; border-radius:6px; border:1px solid #ccc; font-weight:bold; font-size:13px; color:var(--azul);">
+                            <span style="font-size:12px; font-weight:bold;">€</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:var(--azul); font-weight:bold; font-size:14px;">${item.total.toFixed(2)}€</span>
+                    <button class="btn-mini" style="background:var(--rojo); color:white;" onclick="eliminarDelCarro(${item.id})">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function irACategoriaDesdeCarro(categoria) {
+        cerrarModal('modal-desglose');
+        abrirCategoria(categoria);
+    }
+
+    function renderHistorialDetallado() {
+        const cont = document.getElementById('lista-historial-detallado');
+        if(historialCompras.length === 0) { cont.innerHTML = `<p style='text-align:center;'>${langKey === 'es' ? 'No hay compras guardadas en el historial.' : 'No saved purchases in history.'}</p>`; return; }
+        cont.innerHTML = historialCompras.map((compra, index) => {
+            let textoWp = `🛒 *${langKey === 'es' ? 'Compra en' : 'Shopping at'} ${compra.supermercado || 'Supermercado'}* (${compra.fecha})\n`;
+            compra.productos.forEach(p => { textoWp += `• ${p.nombre} (${p.unidades}x ${p.precioUnitario.toFixed(2)}€) = ${p.total.toFixed(2)}€\n`; });
+            textoWp += `*TOTAL: ${compra.total.toFixed(2)}€*`;
+            let urlWp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWp)}`;
+
+            return `
+                <div class="tarjeta-compra-guardada">
+                    <div class="tarjeta-compra-header">
+                        <span onclick="toggleDetalleCompra(${compra.id})">🛒 ${compra.supermercado || 'Súper'} (${compra.fecha})</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="color:var(--azul);" onclick="toggleDetalleCompra(${compra.id})">${compra.total.toFixed(2)}€ 🔽</span>
+                            <button class="btn-mini" style="background:var(--rojo); color:white; padding:4px 8px; font-size:12px;" onclick="eliminarCompraUnica(${compra.id})" title="Borrar esta compra">🗑️</button>
+                        </div>
+                    </div>
+                    <div id="det-compra-${compra.id}" class="tarjeta-compra-detalle" style="display:${index === 0 ? 'block' : 'none'};">
+                        ${compra.productos.map(p => `<div style="margin-bottom:6px;">• <strong>${p.nombre}</strong> (${p.unidades}x ${p.precioUnitario.toFixed(2)}€) = <strong>${p.total.toFixed(2)}€</strong></div>`).join('')}
+                        <div style="margin-top:10px; text-align:right;">
+                            <a href="${urlWp}" target="_blank" style="background:#25D366; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold; display:inline-block;"><i class="fab fa-whatsapp"></i> ${langKey === 'es' ? 'Compartir Ticket' : 'Share Receipt'}</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function eliminarCompraUnica(id) {
+        if (confirm(langKey === 'es' ? "¿Quieres borrar solo esta compra del historial?" : "Delete only this purchase from history?")) {
+            historialCompras = historialCompras.filter(c => c.id !== id);
+            guardarDatosDB('compras_detalladas_v150', historialCompras);
+            actualizar();
+            renderHistorialDetallado();
+            mostrarToast("🗑️ " + (langKey === 'es' ? "Compra eliminada" : "Purchase deleted"), 'info');
+        }
+    }
+
+    function toggleDetalleCompra(id) {
+        const el = document.getElementById(`det-compra-${id}`);
+        if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function guardarLimite() {
+        const val = parseFloat(document.getElementById('input-limite').value);
+        if(!isNaN(val) && val > 0) {
+            limitePresupuesto = val;
+            guardarDatosDB('limite_v110', limitePresupuesto);
+            actualizar();
+            cerrarModal('modal-ajustes');
+        }
+    }
+
+    function vaciarHistorial() {
+        if(confirm(langKey === 'es' ? "¿Seguro que quieres borrar todo el historial de compras?" : "Are you sure you want to delete the complete shopping history?")) {
+            historialCompras = [];
+            guardarDatosDB('compras_detalladas_v150', []);
+            actualizar();
+            cerrarModal('modal-ajustes');
+        }
+    }
+
+    function copiarClaveUID() {
+        const uid = localStorage.getItem('supermart_uid');
+        if(uid) {
+            navigator.clipboard.writeText(uid).then(() => {
+                mostrarToast("📋 ¡Clave copiada al portapapeles!", 'info');
+            }).catch(() => {
+                prompt("Copia esta clave para usarla en otro móvil:", uid);
+            });
+        }
+    }
+
+    function vincularOtraClave() {
+        const nuevaClave = prompt("Pega la clave supermart_uid del otro móvil para vincular:");
+        if(nuevaClave && nuevaClave.trim().length > 5) {
+            localStorage.setItem('supermart_uid', nuevaClave.trim());
+            alert("✅ Móvil vinculado con éxito. Reiniciando datos desde la nube...");
+            location.reload();
+        }
+    }
+
+    function desvincularDispositivo() {
+        if(confirm(langKey === 'es' ? "¿Quieres desvincular este dispositivo?\nSe generará una clave UID totalmente nueva e independiente." : "Unlink this device?\nA completely new independent UID key will be generated.")) {
+            localStorage.removeItem('supermart_uid');
+            alert("🔄 Dispositivo desvinculado. Reiniciando app para generar un nuevo código único...");
+            location.reload();
+        }
+    }
+
+    async function cargarDatosIniciales() {
+        aplicarTraducciones();
+        if(window.restaurarNube) { window.restaurarNube(); }
+        try {
+            await iniciarIndexedDB();
+            const dbHabituales = await obtenerDatoDB('habituales_v130');
+            const dbLimite = await obtenerDatoDB('limite_v110');
+            const dbCarro = await obtenerDatoDB('carro_temp');
+            const dbHistorial = await obtenerDatoDB('compras_detalladas_v150');
+            const dbPasillos = await obtenerDatoDB('modo_pasillos_v270');
+
+            habituales = dbHabituales || JSON.parse(localStorage.getItem('habituales_v130')) || frecuentesBase;
+            limitePresupuesto = dbLimite || parseFloat(localStorage.getItem('limite_v110')) || 150;
+            carroActual = dbCarro || JSON.parse(localStorage.getItem('carro_temp')) || [];
+            historialCompras = dbHistorial || JSON.parse(localStorage.getItem('compras_detalladas_v150')) || [];
+            modoPasillos = dbPasillos !== null ? dbPasillos : (localStorage.getItem('modo_pasillos_v270') === 'true');
+        } catch (e) {
+            habituales = JSON.parse(localStorage.getItem('habituales_v130')) || frecuentesBase;
+            limitePresupuesto = parseFloat(localStorage.getItem('limite_v110')) || 150;
+            carroActual = JSON.parse(localStorage.getItem('carro_temp')) || [];
+            historialCompras = JSON.parse(localStorage.getItem('compras_detalladas_v150')) || [];
+            modoPasillos = localStorage.getItem('modo_pasillos_v270') === 'true';
+        }
+
+        if(!localStorage.getItem('tutorial_visto')) {
+            abrirModal('modal-tutorial');
+            localStorage.setItem('tutorial_visto', 'true');
+        }
+
+        aplicarModoVista();
+        actualizar();
+    }
+
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(() => {}); }
+    document.addEventListener('DOMContentLoaded', cargarDatosIniciales);
+</script>
+</body>
+</html>
