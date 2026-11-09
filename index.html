@@ -1661,13 +1661,65 @@
                     </div>
                     <div id="det-compra-${compra.id}" class="tarjeta-compra-detalle" style="display:${index === 0 ? 'block' : 'none'};">
                         ${compra.productos.map(p => `<div style="margin-bottom:6px;">• <strong>${p.nombre}</strong> (${p.unidades}x ${p.precioUnitario.toFixed(2)}€) = <strong>${p.total.toFixed(2)}€</strong></div>`).join('')}
-                        <div style="margin-top:10px; text-align:right;">
-                            <a href="${urlWp}" target="_blank" style="background:#25D366; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold; display:inline-block;"><i class="fab fa-whatsapp"></i> ${langKey === 'es' ? 'Compartir Ticket' : 'Share Receipt'}</a>
+                        <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                            <button class="btn-mini" style="background:var(--verde); color:white; padding:6px 12px; font-size:13px; font-weight:bold;" onclick="recargarCompraAlCarro(${compra.id})">
+                                <i class="fas fa-cart-plus"></i> ${langKey === 'es' ? 'Volver a comprar' : 'Reorder'}
+                            </button>
+                            <a href="${urlWp}" target="_blank" style="background:#25D366; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold; display:inline-block;">
+                                <i class="fab fa-whatsapp"></i> ${langKey === 'es' ? 'Compartir Ticket' : 'Share Receipt'}
+                            </a>
                         </div>
                     </div>
                 </div>
             `;
         }).join('');
+    }
+
+    function recargarCompraAlCarro(idCompra) {
+        const compra = historialCompras.find(c => c.id === idCompra);
+        if (!compra || !compra.productos || compra.productos.length === 0) return;
+
+        const confirmar = confirm(
+            langKey === 'es' 
+                ? `¿Quieres añadir los ${compra.productos.length} productos de esta compra al carro actual?` 
+                : `Add all ${compra.productos.length} items from this purchase to your current cart?`
+        );
+
+        if (!confirmar) return;
+
+        let añadidos = 0;
+
+        compra.productos.forEach(prodOriginal => {
+            const pNum = parseFloat(prodOriginal.precioUnitario) || 0;
+            const cant = parseInt(prodOriginal.unidades) || 1;
+            const existente = carroActual.find(item => item.nombre.toLowerCase() === prodOriginal.nombre.toLowerCase());
+
+            if (existente) {
+                existente.unidades += cant;
+                existente.precioUnitario = pNum;
+                existente.total = existente.unidades * existente.precioUnitario;
+            } else {
+                carroActual.push({
+                    id: Date.now() + Math.random(),
+                    nombre: prodOriginal.nombre,
+                    categoria: prodOriginal.categoria || 'Papel/Varios',
+                    precioUnitario: pNum,
+                    unidades: cant,
+                    total: pNum * cant,
+                    cogido: false
+                });
+            }
+            añadidos++;
+        });
+
+        actualizar();
+        cerrarModal('modal-historial');
+        mostrarToast(
+            langKey === 'es' 
+                ? `🛒 ¡${añadidos} productos añadidos al carro!` 
+                : `🛒 ¡${añadidos} items added to cart!`, 
+            'exito'
+        );
     }
 
     function eliminarCompraUnica(id) {
